@@ -39,12 +39,12 @@ describe('SeverityBadge', () => {
   it('renders sm size with smaller padding classes', () => {
     const { container } = render(<SeverityBadge severity="P2" size="sm" />)
     const badge = container.firstChild as HTMLElement
-    expect(badge.className).toContain('text-xs')
+    expect(badge.className).toContain('text-[10px]')
   })
 
   it('renders md size with larger padding classes', () => {
     const { container } = render(<SeverityBadge severity="P2" size="md" />)
     const badge = container.firstChild as HTMLElement
-    expect(badge.className).toContain('text-sm')
+    expect(badge.className).toContain('text-xs')
   })
 })

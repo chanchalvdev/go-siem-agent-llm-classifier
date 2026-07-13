@@ -79,6 +79,10 @@ func (c *Classifier) WithIndexing(embedder VectorEmbedder, indexer Indexer) {
 	c.indexer = indexer
 }
 
+// OpenAIClient exposes the underlying LLM client so the Phase 3 agent can reuse
+// the same configured connection (DRY — one client, one endpoint).
+func (c *Classifier) OpenAIClient() *openai.Client { return c.client }
+
 // Ping sends a minimal request to verify the LLM is reachable.
 func (c *Classifier) Ping(ctx context.Context) error {
 	_, err := c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
@@ -168,13 +172,13 @@ func (c *Classifier) indexEvent(ev models.ClassifiedEvent) {
 	}
 
 	payload := map[string]any{
-		"event_id":    ev.Event.Raw[:min(32, len(ev.Event.Raw))],
-		"timestamp":   ev.ProcessedAt.Format(time.RFC3339),
-		"source":      ev.Event.Source,
-		"hostname":    ev.Event.Hostname,
-		"attack_type": ev.AttackType,
-		"severity":    string(ev.Severity),
-		"summary":     ev.Summary,
+		"event_id":     ev.Event.Raw[:min(32, len(ev.Event.Raw))],
+		"timestamp":    ev.ProcessedAt.Format(time.RFC3339),
+		"source":       ev.Event.Source,
+		"hostname":     ev.Event.Hostname,
+		"attack_type":  ev.AttackType,
+		"severity":     string(ev.Severity),
+		"summary":      ev.Summary,
 		"mitre_tactic": ev.MITRE.Tactic,
 	}
 

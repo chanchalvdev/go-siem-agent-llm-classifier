@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -13,8 +15,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	openai "github.com/sashabaranov/go-openai"
 	"golang.org/x/time/rate"
 
+	"github.com/chverma/siemagent/internal/agent"
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/config"
 	"github.com/chverma/siemagent/internal/models"
@@ -47,17 +51,35 @@ type Server struct {
 	router     *chi.Mux
 	http       *http.Server
 	events     *store.EventStore
-	search     Searcher // nil when Qdrant not configured
-	embed      Embedder // nil when Ollama not configured
+	search     Searcher      // nil when Qdrant not configured
+	embed      Embedder      // nil when Ollama not configured
+	hub        *Hub          // nil when live alert stream disabled
+	agent      *agentRuntime // nil when Phase 3 agent disabled
 }
 
-// ServerOption lets callers attach optional Phase 2 components.
+// agentRuntime bundles the pieces the P1/P2 auto-trigger needs.
+type agentRuntime struct {
+	client   *openai.Client
+	model    string
+	registry *agent.Registry
+}
+
+// ServerOption lets callers attach optional Phase 2/3 components.
 type ServerOption func(*Server)
 
 func WithSearch(s Searcher, e Embedder) ServerOption {
 	return func(srv *Server) {
 		srv.search = s
 		srv.embed = e
+	}
+}
+
+// WithAgent enables the live incident stream: high-severity classifications
+// auto-launch an agent investigation broadcast over the hub.
+func WithAgent(hub *Hub, client *openai.Client, model string, reg *agent.Registry) ServerOption {
+	return func(srv *Server) {
+		srv.hub = hub
+		srv.agent = &agentRuntime{client: client, model: model, registry: reg}
 	}
 }
 
@@ -110,6 +132,9 @@ func (s *Server) buildRouter() *chi.Mux {
 	// Legacy top-level routes for backward compatibility
 	r.Post("/classify", s.handleClassify)
 	r.Post("/classify/stream", s.handleClassifyStream)
+
+	// Phase 3 live incident stream (WebSocket)
+	r.Get("/ws/alerts", s.handleAlertStream)
 
 	// Swagger UI at /docs and /docs/openapi.yaml
 	r.Get("/docs", s.handleDocsUI)
@@ -193,26 +218,21 @@ func (rl *ipRateLimiter) middleware(next http.Handler) http.Handler {
 
 // --- Structured request logger ---
 
-type statusRecorder struct {
-	http.ResponseWriter
-	status int
-}
-
-func (sr *statusRecorder) WriteHeader(code int) {
-	sr.status = code
-	sr.ResponseWriter.WriteHeader(code)
-}
-
 func slogRequestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		// chi's wrapper preserves http.Hijacker so WebSocket upgrades still work.
+		rec := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(rec, r)
+		status := rec.Status()
+		if status == 0 {
+			status = http.StatusOK
+		}
 		slog.Info("request",
 			"component", "api",
 			"method", r.Method,
 			"path", r.URL.Path,
-			"status", rec.status,
+			"status", status,
 			"latency_ms", time.Since(start).Milliseconds(),
 			"request_id", middleware.GetReqID(r.Context()),
 		)
@@ -295,7 +315,42 @@ func (s *Server) handleClassify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.events.Add(classified)
-	writeJSON(w, http.StatusOK, classified)
+	s.maybeInvestigate(classified)
+	writeJSON(w, http.StatusOK, sanitizeEvent(classified))
+}
+
+// maybeInvestigate launches an agent investigation for P1/P2 events and
+// broadcasts each AgentEvent over the hub. No-op when the agent isn't wired.
+func (s *Server) maybeInvestigate(ev models.ClassifiedEvent) {
+	if s.agent == nil || s.hub == nil {
+		return
+	}
+	if ev.Severity != models.SeverityP1 && ev.Severity != models.SeverityP2 {
+		return
+	}
+	incidentID := uuid()
+	eventID := ev.ProcessedAt.Format(time.RFC3339Nano)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		err := agent.RunIncidentStream(ctx, s.agent.client, s.agent.model, s.agent.registry, ev,
+			func(e agent.AgentEvent) {
+				msg, _ := json.Marshal(map[string]string{
+					"incident_id": incidentID, "event_id": eventID, "type": e.Type, "data": e.Data,
+				})
+				s.hub.Broadcast(msg)
+			})
+		if err != nil {
+			slog.Error("incident agent failed", "component", "api", "incident", incidentID, "error", err)
+		}
+	}()
+}
+
+// uuid returns a short random incident identifier (crypto/rand hex).
+func uuid() string {
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 // --- SSE streaming classify handler ---

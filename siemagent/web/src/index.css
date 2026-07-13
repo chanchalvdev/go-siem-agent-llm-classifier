@@ -48,3 +48,11 @@
 .severity-pulse {
   animation: severity-pulse 1.5s ease-in-out infinite;
 }
+
+@keyframes ticker-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.ticker-in {
+  animation: ticker-in 0.25s ease-out;
+}

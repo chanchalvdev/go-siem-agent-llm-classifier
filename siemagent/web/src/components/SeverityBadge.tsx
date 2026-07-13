@@ -1,6 +1,9 @@
 import type { Severity } from '../styles/tokens'
 import { SEVERITY_LABELS } from '../styles/tokens'
 
+// Re-exported so consumers (Search page, tests) can pull labels from the badge.
+export { SEVERITY_LABELS } from '../styles/tokens'
+
 const SEVERITY_STYLES: Record<Severity, string> = {
   P1: 'bg-red-500/15 text-red-400 border-red-500/30',
   P2: 'bg-orange-500/15 text-orange-400 border-orange-500/30',

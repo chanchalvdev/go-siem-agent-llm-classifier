@@ -82,6 +82,11 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	classified := len(results)
 	errCount = accepted - classified
 
+	// Sanitise log-derived content before returning it (log-injection defence).
+	for i := range results {
+		results[i] = sanitizeEvent(results[i])
+	}
+
 	resp := models.IngestResponse{
 		Accepted:   accepted,
 		Classified: classified,
