@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chverma/siemagent/internal/agent"
+	"github.com/chverma/siemagent/internal/agent/tools"
 	"github.com/chverma/siemagent/internal/api"
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/config"
@@ -81,6 +83,7 @@ func runServer(cfg config.Config, cls *classifier.Classifier) {
 	embedder := ollama.NewEmbedder(cfg.OllamaURL)
 
 	var opts []api.ServerOption
+	reg := buildRegistry()
 	qdrantStore, err := pkgqdrant.NewAPIStore(cfg.QdrantAddr, "siem_events")
 	if err != nil {
 		slog.Warn("Qdrant unavailable, semantic search disabled", "component", "main", "error", err)
@@ -90,8 +93,13 @@ func runServer(cfg config.Config, cls *classifier.Classifier) {
 		cancel()
 		cls.WithIndexing(embedder, qdrantStore.Store)
 		opts = append(opts, api.WithSearch(qdrantStore, embedder))
+		// Give the agent recall over past events (only when the store is up).
+		reg.Register(tools.NewSimilarEvents(embedder, qdrantSearchAdapter{qdrantStore}))
 		slog.Info("Qdrant connected, semantic search enabled", "component", "main")
 	}
+
+	// Wire up Phase 3 agent: tool registry + live incident stream over WebSocket.
+	opts = append(opts, api.WithAgent(buildHub(), cls.OpenAIClient(), cfg.ModelName, reg))
 
 	srv := api.New(cfg, cls, opts...)
 
@@ -113,6 +121,36 @@ func runServer(cfg config.Config, cls *classifier.Classifier) {
 		fmt.Fprintf(os.Stderr, "server: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// buildHub creates the WebSocket hub for the live incident stream.
+func buildHub() *api.Hub { return api.NewHub() }
+
+// qdrantSearchAdapter adapts the Qdrant APIStore to tools.VectorSearcher so the
+// similar-events agent tool stays decoupled from the api/qdrant packages.
+type qdrantSearchAdapter struct{ store *pkgqdrant.APIStore }
+
+func (q qdrantSearchAdapter) Search(ctx context.Context, vec []float32, topK uint64, sev string) ([]tools.SearchHit, error) {
+	res, err := q.store.Search(ctx, vec, topK, sev)
+	if err != nil {
+		return nil, err
+	}
+	hits := make([]tools.SearchHit, len(res))
+	for i, r := range res {
+		hits[i] = tools.SearchHit{Score: r.Score, Payload: r.Payload}
+	}
+	return hits, nil
+}
+
+// buildRegistry assembles the Phase 3 tool registry. External-API tools read
+// their keys from env and degrade gracefully when a key is absent.
+func buildRegistry() *agent.Registry {
+	reg := agent.New()
+	reg.Register(tools.NewAbuseIPDB(os.Getenv("ABUSEIPDB_KEY"), nil))
+	reg.Register(tools.NewOTX(os.Getenv("OTX_API_KEY"), nil))
+	reg.Register(tools.MITRELookup{})
+	slog.Info("agent tool registry ready", "component", "main", "tools", len(reg.All()))
+	return reg
 }
 
 // --- CLI mode ---

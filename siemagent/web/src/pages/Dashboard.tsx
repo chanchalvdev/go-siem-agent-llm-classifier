@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Shield, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown } from 'lucide-react'
+import { Shield, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown, BookOpen } from 'lucide-react'
 import { classifyLog } from '../lib/api'
 import type { ClassifiedEvent } from '../lib/api'
 import type { Severity } from '../styles/tokens'
@@ -11,6 +11,8 @@ import { IOCList } from '../components/IOCList'
 import { DropZone } from '../components/DropZone'
 import { SimilarEvents } from '../components/SimilarEvents'
 import { AnalyticsPanel } from '../components/AnalyticsPanel'
+import { MITREHeatmap } from '../components/MITREHeatmap'
+import { Docs } from './Docs'
 
 const ALL_SEVERITIES: Severity[] = ['P1', 'P2', 'P3', 'P4', 'P5']
 const EVENTS_KEY = 'classified-events'
@@ -24,9 +26,11 @@ function useEventStore() {
   })
   function addEvent(ev: ClassifiedEvent) {
     qc.setQueryData<ClassifiedEvent[]>([EVENTS_KEY], (prev = []) => [ev, ...prev])
+    qc.invalidateQueries({ queryKey: ['analytics'] })
   }
   function addEvents(evs: ClassifiedEvent[]) {
-    qc.setQueryData<ClassifiedEvent[]>([EVENTS_KEY], (prev = []) => [...evs.reverse(), ...prev])
+    qc.setQueryData<ClassifiedEvent[]>([EVENTS_KEY], (prev = []) => [...[...evs].reverse(), ...prev])
+    qc.invalidateQueries({ queryKey: ['analytics'] })
   }
   function clear() {
     qc.setQueryData<ClassifiedEvent[]>([EVENTS_KEY], [])
@@ -34,7 +38,7 @@ function useEventStore() {
   return { events, addEvent, addEvents, clear }
 }
 
-type Tab = 'events' | 'analytics'
+type Tab = 'events' | 'analytics' | 'docs'
 
 export function Dashboard() {
   const { events, addEvent, addEvents, clear } = useEventStore()
@@ -151,6 +155,17 @@ export function Dashboard() {
             <BarChart2 size={16} />
             Analytics
           </button>
+          <button
+            onClick={() => { setActiveTab('docs'); setSidebarOpen(false) }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              activeTab === 'docs'
+                ? 'bg-blue-600/20 text-blue-400 font-medium'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+            }`}
+          >
+            <BookOpen size={16} />
+            Docs
+          </button>
         </nav>
 
         {/* Severity filter */}
@@ -240,7 +255,7 @@ export function Dashboard() {
 
         {/* ── Mobile tab bar ── */}
         <div className="lg:hidden flex border-b border-white/5 bg-[#0d1426]/50 shrink-0">
-          {(['events', 'analytics'] as Tab[]).map((tab) => (
+          {(['events', 'analytics', 'docs'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -256,6 +271,9 @@ export function Dashboard() {
         </div>
 
         {/* ── Body ── */}
+        {activeTab === 'docs' ? (
+          <Docs />
+        ) : (
         <div className="flex flex-1 min-h-0 overflow-hidden">
 
           {/* Events list */}
@@ -310,6 +328,10 @@ export function Dashboard() {
             ${selected ? 'lg:hidden xl:block' : ''}
           `}>
             <AnalyticsPanel />
+            <div className="p-3">
+              <h3 className="mb-2 text-xs uppercase tracking-wide text-gray-500">MITRE ATT&CK Heatmap</h3>
+              <MITREHeatmap events={events} />
+            </div>
           </div>
 
           {/* Detail panel — slides in on mobile, static on desktop */}
@@ -341,6 +363,7 @@ export function Dashboard() {
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   )
