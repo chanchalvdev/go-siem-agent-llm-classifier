@@ -13,6 +13,7 @@ import (
 
 	"github.com/chverma/siemagent/internal/agent"
 	"github.com/chverma/siemagent/internal/incident"
+	"github.com/chverma/siemagent/internal/logsafe"
 	"github.com/chverma/siemagent/internal/metrics"
 	"github.com/chverma/siemagent/internal/models"
 )
@@ -73,7 +74,7 @@ func (s *Server) startInvestigation(incidentID, eventID string,
 			s.hub.Broadcast(msg)
 		})
 		if err != nil {
-			slog.Error("investigation failed", "component", "api", "incident", incidentID, "error", err)
+			slog.Error("investigation failed", "component", "api", "incident", logsafe.String(incidentID), "error", logsafe.Err(err))
 			return
 		}
 		if s.incidents == nil || strings.TrimSpace(writeUp.String()) == "" {
@@ -82,7 +83,7 @@ func (s *Server) startInvestigation(incidentID, eventID string,
 		saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if _, err := s.incidents.Note(saveCtx, incidentID, AIActor, incident.ActivityInvestigation, writeUp.String()); err != nil {
-			slog.Error("save investigation failed", "component", "api", "incident", incidentID, "error", err)
+			slog.Error("save investigation failed", "component", "api", "incident", logsafe.String(incidentID), "error", logsafe.Err(err))
 		}
 	}()
 	return nil
