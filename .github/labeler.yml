@@ -1,0 +1,48 @@
+# Path-based "area:" labels, applied by .github/workflows/pr-labeler.yml.
+"area: backend":
+  - changed-files:
+      - any-glob-to-any-file:
+          - siemagent/cmd/**
+          - siemagent/internal/**
+          - siemagent/pkg/**
+          - siemagent/go.mod
+"area: frontend":
+  - changed-files:
+      - any-glob-to-any-file: siemagent/web/**
+"area: detection":
+  - changed-files:
+      - any-glob-to-any-file:
+          - siemagent/internal/detection/**
+          - siemagent/rules/**
+"area: ingestion":
+  - changed-files:
+      - any-glob-to-any-file:
+          - siemagent/internal/ingest/**
+          - siemagent/internal/parser/**
+"area: ai":
+  - changed-files:
+      - any-glob-to-any-file:
+          - siemagent/internal/classifier/**
+          - siemagent/internal/agent/**
+"area: storage":
+  - changed-files:
+      - any-glob-to-any-file:
+          - siemagent/internal/store/**
+          - siemagent/pkg/qdrant/**
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - .githooks/**
+          - Makefile
+          - "**/Dockerfile"
+"area: docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - docs/**
+"area: deps":
+  - changed-files:
+      - any-glob-to-any-file:
+          - siemagent/go.sum
+          - siemagent/web/package-lock.json

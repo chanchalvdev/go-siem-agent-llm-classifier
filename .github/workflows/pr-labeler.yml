@@ -1,0 +1,21 @@
+name: PR labeler
+
+# pull_request_target so labels also apply to PRs from forks. Safe: this
+# workflow never checks out or runs the PR's code, it only reads changed paths.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Area labels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: true

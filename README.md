@@ -484,13 +484,19 @@ make docker-down  # Stop all Docker services
 make clean        # Remove build artifacts
 ```
 
-### Build single binary with embedded frontend
+### Run everything in containers
 
 ```bash
-make build-all
-./bin/siemagent --serve --port 8080
-# Visit http://localhost:8080 — no separate Vite server needed
+cd siemagent
+docker compose --profile app up -d --build
+# Dashboard: http://localhost:3000   API: http://localhost:8080
 ```
+
+Released images are published to GHCR as `ghcr.io/chanchalvdev/siemagent-api`
+and `ghcr.io/chanchalvdev/siemagent-web`, with binaries for Linux and macOS on
+the [releases page](https://github.com/chanchalvdev/go-siem-agent-llm-classifier/releases).
+How branches, pull requests and releases work is described in
+[docs/BRANCHING.md](docs/BRANCHING.md).
 
 ---
 

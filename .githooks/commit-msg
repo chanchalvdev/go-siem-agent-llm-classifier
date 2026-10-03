@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Enforce Conventional Commits: type(scope)!: subject
+set -euo pipefail
+first=$(head -n1 "$1")
+
+# Allow git-generated merge/revert/fixup messages.
+case "$first" in
+  Merge\ *|Revert\ *|fixup!\ *|squash!\ *) exit 0 ;;
+esac
+
+pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$'
+if ! [[ "$first" =~ $pattern ]]; then
+  echo "commit-msg: subject must follow Conventional Commits, e.g." >&2
+  echo "  feat(detection): add Sigma rule engine" >&2
+  echo "  fix(api): reject empty limit" >&2
+  echo "got: $first" >&2
+  exit 1
+fi
