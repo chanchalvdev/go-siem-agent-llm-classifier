@@ -29,14 +29,23 @@ import (
 	pkgqdrant "github.com/chverma/siemagent/pkg/qdrant"
 )
 
+// version is set at build time: -ldflags "-X main.version=v1.2.3".
+var version = "dev"
+
 func main() {
 	var (
 		serve   = flag.Bool("serve", false, "Start HTTP server mode")
 		port    = flag.String("port", "", "HTTP server port (overrides $CONDUCTOR_PORT)")
 		workers = flag.Int("workers", 5, "Number of concurrent classifier goroutines")
 		outFile = flag.String("output", "", "Write JSON results to file instead of stdout")
+		showVer = flag.Bool("version", false, "Print the version and exit")
 	)
 	flag.Parse()
+
+	if *showVer {
+		fmt.Println("siemagent", version)
+		return
+	}
 
 	cfg := config.Load()
 	if *port != "" {
@@ -51,7 +60,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("LLM provider configured", "component", "main", "provider", cfg.Provider, "model", cfg.ModelName)
+	slog.Info("LLM provider configured", "component", "main", "version", version, "provider", cfg.Provider, "model", cfg.ModelName)
 	cls := classifier.New(cfg.APIKey, cfg.BaseURL, cfg.ModelName)
 
 	if *serve {
