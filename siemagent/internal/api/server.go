@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -74,6 +73,9 @@ type agentRuntime struct {
 	model    string
 	registry *agent.Registry
 	slots    chan struct{} // semaphore of maxConcurrentInvestigations
+
+	mu      sync.Mutex
+	running map[string]bool // incident IDs with an investigation in flight
 }
 
 // ServerOption lets callers attach optional Phase 2/3 components.
@@ -103,7 +105,8 @@ func WithAgent(hub *Hub, client *openai.Client, model string, reg *agent.Registr
 		srv.hub = hub
 		srv.agent = &agentRuntime{
 			client: client, model: model, registry: reg,
-			slots: make(chan struct{}, maxConcurrentInvestigations),
+			slots:   make(chan struct{}, maxConcurrentInvestigations),
+			running: map[string]bool{},
 		}
 	}
 }
@@ -167,6 +170,9 @@ func (s *Server) buildRouter() *chi.Mux {
 			r.Get("/incidents/{id}", s.handleGetIncident)
 			r.Patch("/incidents/{id}", s.handleUpdateIncident)
 			r.Post("/incidents/{id}/comments", s.handleAddComment)
+			r.Post("/incidents/{id}/investigate", s.handleInvestigateIncident)
+			r.Get("/incidents/{id}/report", s.handleIncidentReport)
+			r.Post("/incidents/{id}/feedback", s.handleIncidentFeedback)
 		})
 
 		// Legacy top-level routes for backward compatibility
@@ -381,54 +387,6 @@ func (s *Server) record(ev models.ClassifiedEvent) {
 	if res.Created || res.Escalated {
 		s.maybeInvestigate(ev, res.Incident.ID)
 	}
-}
-
-// maybeInvestigate launches an agent investigation for P1/P2 events and
-// broadcasts each AgentEvent over the hub. With incidents enabled the final
-// write-up is saved to the incident history. No-op when the agent isn't wired.
-func (s *Server) maybeInvestigate(ev models.ClassifiedEvent, incidentID string) {
-	if s.agent == nil || s.hub == nil {
-		return
-	}
-	if ev.Severity != models.SeverityP1 && ev.Severity != models.SeverityP2 {
-		return
-	}
-	select {
-	case s.agent.slots <- struct{}{}:
-	default:
-		metrics.InvestigationsSkippedTotal.Inc()
-		slog.Warn("investigation skipped: too many in flight", "component", "api",
-			"limit", maxConcurrentInvestigations, "attack_type", ev.AttackType)
-		return
-	}
-	eventID := ev.ProcessedAt.Format(time.RFC3339Nano)
-	go func() {
-		defer func() { <-s.agent.slots }()
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		defer cancel()
-		var playbook strings.Builder
-		err := agent.RunIncidentStream(ctx, s.agent.client, s.agent.model, s.agent.registry, ev,
-			func(e agent.AgentEvent) {
-				if e.Type == "chunk" {
-					playbook.WriteString(e.Data)
-				}
-				msg, _ := json.Marshal(map[string]string{
-					"incident_id": incidentID, "event_id": eventID, "type": e.Type, "data": e.Data,
-				})
-				s.hub.Broadcast(msg)
-			})
-		if err != nil {
-			slog.Error("incident agent failed", "component", "api", "incident", incidentID, "error", err)
-			return
-		}
-		if s.incidents != nil && strings.TrimSpace(playbook.String()) != "" {
-			noteCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if _, err := s.incidents.Note(noteCtx, incidentID, "ai-agent", incident.ActivityInvestigation, playbook.String()); err != nil {
-				slog.Error("save investigation failed", "component", "api", "incident", incidentID, "error", err)
-			}
-		}
-	}()
 }
 
 // uuid returns a short random incident identifier (crypto/rand hex).

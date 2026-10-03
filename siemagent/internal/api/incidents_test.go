@@ -222,3 +222,113 @@ func TestOneInvestigationPerIncidentSavedToHistory(t *testing.T) {
 		t.Fatalf("four alerts in one incident should run one investigation, ran %d", n)
 	}
 }
+
+func waitFor(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s", what)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func countKind(t *testing.T, svc *incident.Service, id, kind string) int {
+	t.Helper()
+	d, _ := svc.Get(context.Background(), id)
+	n := 0
+	for _, a := range d.Activity {
+		if a.Kind == kind {
+			n++
+		}
+	}
+	return n
+}
+
+func TestOnDemandInvestigationReportAndFeedback(t *testing.T) {
+	client, streams := countingLLM(t)
+	svc := incident.NewService(incident.NewMemory(), incident.DefaultConfig())
+	r := fixedResult
+	r.Severity = models.SeverityP3 // below auto-investigation
+	srv := New(config.Config{Port: "0"}, &mockClassifier{result: r},
+		WithIncidents(svc), WithAgent(NewHub(), client, "model", agent.New()))
+	ts := httptest.NewServer(srv.router)
+	defer ts.Close()
+
+	classifyLine(t, ts, "sshd[1]: Failed password for root from 203.0.113.7 port 1 ssh2")
+	list, _ := svc.List(context.Background(), incident.Filter{})
+	id := list[0].ID
+
+	var e map[string]string
+	if code := doJSON(t, http.MethodPost, ts.URL+"/api/incidents/"+id+"/feedback", `{"helpful":true}`, &e); code != http.StatusBadRequest {
+		t.Fatalf("feedback before any investigation: %d %v", code, e)
+	}
+	if streams.Load() != 0 {
+		t.Fatal("P3 must not auto-investigate")
+	}
+
+	if code := doJSON(t, http.MethodPost, ts.URL+"/api/incidents/"+id+"/investigate", "", nil); code != http.StatusAccepted {
+		t.Fatalf("investigate: %d", code)
+	}
+	waitFor(t, "investigation note", func() bool { return countKind(t, svc, id, incident.ActivityInvestigation) == 1 })
+
+	resp, err := http.Get(ts.URL + "/api/incidents/" + id + "/report?download=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/markdown") ||
+		resp.Header.Get("Content-Disposition") != `attachment; filename="`+id+`-report.md"` {
+		t.Fatalf("headers: %v", resp.Header)
+	}
+	if !strings.Contains(string(body), "## AI investigation") || !strings.Contains(string(body), "Block the source.") {
+		t.Fatalf("report:\n%s", body)
+	}
+
+	var act incident.Activity
+	if code := doJSON(t, http.MethodPost, ts.URL+"/api/incidents/"+id+"/feedback", `{"helpful":false,"note":"too vague"}`, &act); code != http.StatusCreated || act.Kind != incident.ActivityFeedback {
+		t.Fatalf("feedback: %d %+v", code, act)
+	}
+	if code := doJSON(t, http.MethodPost, ts.URL+"/api/incidents/"+id+"/feedback", `{"note":"x"}`, nil); code != http.StatusBadRequest {
+		t.Fatalf("feedback without rating: %d", code)
+	}
+}
+
+func TestInvestigateErrors(t *testing.T) {
+	// No agent configured.
+	ts, svc := incidentServer(t)
+	classifyLine(t, ts, "sshd[1]: Failed password for root from 203.0.113.7 port 1 ssh2")
+	list, _ := svc.List(context.Background(), incident.Filter{})
+	if code := doJSON(t, http.MethodPost, ts.URL+"/api/incidents/"+list[0].ID+"/investigate", "", nil); code != http.StatusServiceUnavailable {
+		t.Fatalf("no agent: %d", code)
+	}
+	if code := doJSON(t, http.MethodPost, ts.URL+"/api/incidents/INC-NOPE/investigate", "", nil); code != http.StatusNotFound {
+		t.Fatalf("unknown incident: %d", code)
+	}
+	if code := doJSON(t, http.MethodGet, ts.URL+"/api/incidents/INC-NOPE/report", "", nil); code != http.StatusNotFound {
+		t.Fatalf("unknown report: %d", code)
+	}
+}
+
+func TestInvestigationRunsOncePerIncidentAtATime(t *testing.T) {
+	client := openai.NewClientWithConfig(openai.DefaultConfig("unused"))
+	svc := incident.NewService(incident.NewMemory(), incident.DefaultConfig())
+	srv := New(config.Config{Port: "0"}, &mockClassifier{result: fixedResult},
+		WithIncidents(svc), WithAgent(NewHub(), client, "model", agent.New()))
+
+	srv.agent.running["INC-BUSY"] = true
+	if err := srv.investigateIncident("INC-BUSY", ""); err != errAlreadyRunning {
+		t.Fatalf("want errAlreadyRunning, got %v", err)
+	}
+	for range maxConcurrentInvestigations {
+		srv.agent.slots <- struct{}{}
+	}
+	if err := srv.investigateIncident("INC-OTHER", ""); err != errAgentBusy {
+		t.Fatalf("want errAgentBusy, got %v", err)
+	}
+	if srv.agent.running["INC-OTHER"] {
+		t.Fatal("a refused run must not be marked running")
+	}
+}
