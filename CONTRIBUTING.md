@@ -38,6 +38,10 @@ make quality-gate       # gofmt, vet, golangci-lint, race tests, build, web lint
 make test-integration   # Postgres + Qdrant tests (after make docker-up)
 ```
 
+To check a change by hand, replay the demo attack scenario as described in
+[docs/TESTING.md](docs/TESTING.md). [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+explains how the pieces fit together.
+
 A pull request is ready when:
 
 - `make quality-gate` passes.

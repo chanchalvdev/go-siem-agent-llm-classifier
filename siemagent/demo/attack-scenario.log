@@ -1,0 +1,30 @@
+# Demo attack scenario for SIEMAgent: upload it with the dashboard's Upload button. See docs/TESTING.md.
+# Story 1: SSH brute force on web01 -> successful login -> root shell (one incident, P2)
+Oct  3 10:00:00 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52000 ssh2
+Oct  3 10:00:01 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52001 ssh2
+Oct  3 10:00:02 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52002 ssh2
+Oct  3 10:00:03 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52003 ssh2
+Oct  3 10:00:04 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52004 ssh2
+Oct  3 10:00:05 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52005 ssh2
+Oct  3 10:00:06 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52006 ssh2
+Oct  3 10:00:07 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52007 ssh2
+Oct  3 10:00:08 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52008 ssh2
+Oct  3 10:00:09 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52009 ssh2
+Oct  3 10:05:00 web01 sshd[4721]: Accepted password for root from 185.220.101.77 port 52999 ssh2
+Oct  3 10:06:00 web01 sudo:   deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/bin/bash
+# Story 2: port scan against the firewall (threshold rule, P3)
+Oct  3 10:10:00 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=21
+Oct  3 10:10:01 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=22
+Oct  3 10:10:02 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=23
+Oct  3 10:10:03 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=25
+Oct  3 10:10:04 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=80
+Oct  3 10:10:05 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=110
+Oct  3 10:10:06 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=139
+Oct  3 10:10:07 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443
+Oct  3 10:10:08 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=445
+Oct  3 10:10:09 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=3389
+# Story 3: ransomware precursor on app02 (P1 incident, isolation playbook)
+Oct  3 10:20:00 app02 cmd[900]: vssadmin delete shadows /all /quiet
+# Background noise: classified as benign or low
+Oct  3 10:21:00 web01 CRON[5120]: (root) CMD (/usr/lib/php/sessionclean)
+Oct  3 10:22:00 web01 sshd[5200]: Accepted publickey for deploy from 10.0.0.2 port 51122 ssh2

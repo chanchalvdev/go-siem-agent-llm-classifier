@@ -29,3 +29,6 @@ dist-ssr
 # Go build output
 siemagent/bin/
 siemagent/siemagent
+
+# Demo scenarios are documentation, not runtime logs
+!siemagent/demo/*.log

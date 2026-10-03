@@ -1,5 +1,7 @@
 # Implementation Trace — Low Level
 
+> **Current architecture:** this trace covers Phases 1–3. For the full flow through detection, incidents, AI investigation, response and users, read [ARCHITECTURE.md](ARCHITECTURE.md).
+
 > **Living document.** Line numbers drift — when you touch a file listed here,
 > fix its entry and add a row to the [Update Log](#update-log). For the
 > boxes-and-arrows view read
@@ -140,3 +142,4 @@ websocat ws://localhost:8080/ws/alerts   # watch the live stream raw
 | Date | Author | Change |
 |---|---|---|
 | 2026-07-13 | Claude (initial) | Created doc; line refs verified against working tree (Phases 1–3) |
+| 2026-10-03 | Claude | Not yet traced: `internal/detection`, `incident`, `response`, `auth`, `logsafe`; line references for `internal/api` predate them. See [ARCHITECTURE.md](ARCHITECTURE.md) for the current flow |
