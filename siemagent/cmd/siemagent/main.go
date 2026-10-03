@@ -21,6 +21,7 @@ import (
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/config"
 	"github.com/chverma/siemagent/internal/detection"
+	"github.com/chverma/siemagent/internal/incident"
 	"github.com/chverma/siemagent/internal/ingest"
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
@@ -172,8 +173,15 @@ func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.
 		defer pg.Close()
 		opts = append(opts, api.WithStore(pg))
 		slog.Info("events persisted to Postgres", "component", "main")
+		incStore, err := incident.NewPostgres(ctx, pg.Pool())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		opts = append(opts, api.WithIncidents(newIncidentService(cfg, incStore)))
 	} else {
 		slog.Warn("POSTGRES_DSN not set: events are kept in memory and lost on restart", "component", "main")
+		opts = append(opts, api.WithIncidents(newIncidentService(cfg, incident.NewMemory())))
 	}
 
 	if !cfg.AuthEnabled() {
@@ -228,6 +236,13 @@ func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.
 		live.Close()
 	}
 	slog.Info("shutdown complete", "component", "main")
+}
+
+// newIncidentService builds alert correlation from validated configuration.
+func newIncidentService(cfg config.Config, st incident.Store) *incident.Service {
+	window, minSev, _ := cfg.Incidents() // checked by cfg.Validate at start
+	slog.Info("incident correlation enabled", "component", "main", "window", window, "min_severity", minSev)
+	return incident.NewService(st, incident.Config{Window: window, MinSeverity: models.Severity(minSev)})
 }
 
 // connectQdrant returns a search store only when Qdrant actually answers.

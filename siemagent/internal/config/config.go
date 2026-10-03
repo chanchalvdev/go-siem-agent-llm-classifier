@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 // LLM providers. Every provider is reached through an OpenAI-compatible
@@ -39,6 +40,10 @@ type Config struct {
 	SyslogTCPAddr string   // e.g. ":5514"; empty disables the TCP listener
 	DetectionMode string   // rules-first (default) | enrich | off
 	SigmaRulesDir string   // extra Sigma rules, e.g. a SigmaHQ checkout
+
+	// Incident correlation (see Incidents). Raw values; Validate checks them.
+	IncidentWindowRaw      string // e.g. "1h"; default 1h
+	IncidentMinSeverityRaw string // P1–P5; default P3
 }
 
 func Load() Config {
@@ -56,6 +61,9 @@ func Load() Config {
 		SyslogTCPAddr: os.Getenv("SYSLOG_TCP_ADDR"),
 		DetectionMode: strings.ToLower(strings.TrimSpace(os.Getenv("DETECTION_MODE"))),
 		SigmaRulesDir: os.Getenv("SIGMA_RULES_DIR"),
+
+		IncidentWindowRaw:      strings.TrimSpace(os.Getenv("INCIDENT_WINDOW")),
+		IncidentMinSeverityRaw: strings.ToUpper(strings.TrimSpace(os.Getenv("INCIDENT_MIN_SEVERITY"))),
 	}
 
 	cfg.Provider = strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
@@ -93,8 +101,33 @@ func Load() Config {
 	return cfg
 }
 
+// Incidents returns the correlation window and the least severe alert that
+// joins an incident.
+func (c Config) Incidents() (window time.Duration, minSeverity string, err error) {
+	window, minSeverity = time.Hour, "P3"
+	if c.IncidentWindowRaw != "" {
+		d, err := time.ParseDuration(c.IncidentWindowRaw)
+		if err != nil || d < time.Minute || d > 7*24*time.Hour {
+			return 0, "", fmt.Errorf("INCIDENT_WINDOW %q must be a duration between 1m and 168h", c.IncidentWindowRaw)
+		}
+		window = d
+	}
+	if c.IncidentMinSeverityRaw != "" {
+		switch c.IncidentMinSeverityRaw {
+		case "P1", "P2", "P3", "P4", "P5":
+			minSeverity = c.IncidentMinSeverityRaw
+		default:
+			return 0, "", fmt.Errorf("INCIDENT_MIN_SEVERITY %q must be P1–P5", c.IncidentMinSeverityRaw)
+		}
+	}
+	return window, minSeverity, nil
+}
+
 // Validate reports configuration that would stop the agent from working.
 func (c Config) Validate() error {
+	if _, _, err := c.Incidents(); err != nil {
+		return err
+	}
 	switch c.Provider {
 	case ProviderGemini:
 		if c.APIKey == "" {

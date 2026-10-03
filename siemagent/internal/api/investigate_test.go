@@ -23,9 +23,9 @@ func TestInvestigationsAreCapped(t *testing.T) {
 	}
 
 	before := testutil.ToFloat64(metrics.InvestigationsSkippedTotal)
-	srv.maybeInvestigate(models.ClassifiedEvent{Severity: models.SeverityP1})
-	srv.maybeInvestigate(models.ClassifiedEvent{Severity: models.SeverityP2})
-	srv.maybeInvestigate(models.ClassifiedEvent{Severity: models.SeverityP4}) // not eligible
+	srv.maybeInvestigate(models.ClassifiedEvent{Severity: models.SeverityP1}, "inc")
+	srv.maybeInvestigate(models.ClassifiedEvent{Severity: models.SeverityP2}, "inc")
+	srv.maybeInvestigate(models.ClassifiedEvent{Severity: models.SeverityP4}, "inc") // not eligible
 
 	if got := testutil.ToFloat64(metrics.InvestigationsSkippedTotal) - before; got != 2 {
 		t.Fatalf("want 2 skipped investigations, got %v", got)

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/config"
 	"github.com/chverma/siemagent/internal/detection"
+	"github.com/chverma/siemagent/internal/incident"
 	"github.com/chverma/siemagent/internal/metrics"
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
@@ -58,6 +60,7 @@ type Server struct {
 	hub        *Hub              // nil when live alert stream disabled
 	agent      *agentRuntime     // nil when Phase 3 agent disabled
 	detections *detection.Engine // nil when detection rules are off
+	incidents  *incident.Service // nil when correlation is off
 }
 
 // maxConcurrentInvestigations caps agent runs in flight. Bulk ingest and
@@ -158,6 +161,12 @@ func (s *Server) buildRouter() *chi.Mux {
 			r.Patch("/detections/rules/{id}", s.handleUpdateDetectionRule)
 			r.Get("/search", s.handleSearch)
 			r.Get("/analytics/summary", s.handleAnalyticsSummary)
+
+			r.Get("/incidents", s.handleListIncidents)
+			r.Get("/incidents/stats", s.handleIncidentStats)
+			r.Get("/incidents/{id}", s.handleGetIncident)
+			r.Patch("/incidents/{id}", s.handleUpdateIncident)
+			r.Post("/incidents/{id}/comments", s.handleAddComment)
 		})
 
 		// Legacy top-level routes for backward compatibility
@@ -346,10 +355,11 @@ func (s *Server) handleClassify(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, sanitizeEvent(classified))
 }
 
-// record persists a classified event and, for P1/P2, launches the incident
-// agent. Every ingestion path (HTTP, stream, bulk, syslog) goes through here.
-// It deliberately ignores the request context: a client disconnecting must
-// not lose an event that was already classified.
+// record persists a classified event, correlates it into an incident and,
+// for P1/P2, launches the incident agent. Every ingestion path (HTTP, stream,
+// bulk, syslog) goes through here. It deliberately ignores the request
+// context: a client disconnecting must not lose an event that was already
+// classified.
 func (s *Server) record(ev models.ClassifiedEvent) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -357,12 +367,26 @@ func (s *Server) record(ev models.ClassifiedEvent) {
 		metrics.StoreErrorsTotal.Inc()
 		slog.Error("persist event failed", "component", "api", "error", err)
 	}
-	s.maybeInvestigate(ev)
+	if s.incidents == nil {
+		s.maybeInvestigate(ev, uuid())
+		return
+	}
+	res, ok := s.correlate(ev)
+	if !ok {
+		return
+	}
+	// Investigate once per incident, when it opens as P1/P2 or escalates
+	// into P1/P2, rather than once per alert: a 500-event brute force must
+	// not start 50 agent runs.
+	if res.Created || res.Escalated {
+		s.maybeInvestigate(ev, res.Incident.ID)
+	}
 }
 
 // maybeInvestigate launches an agent investigation for P1/P2 events and
-// broadcasts each AgentEvent over the hub. No-op when the agent isn't wired.
-func (s *Server) maybeInvestigate(ev models.ClassifiedEvent) {
+// broadcasts each AgentEvent over the hub. With incidents enabled the final
+// write-up is saved to the incident history. No-op when the agent isn't wired.
+func (s *Server) maybeInvestigate(ev models.ClassifiedEvent, incidentID string) {
 	if s.agent == nil || s.hub == nil {
 		return
 	}
@@ -377,14 +401,17 @@ func (s *Server) maybeInvestigate(ev models.ClassifiedEvent) {
 			"limit", maxConcurrentInvestigations, "attack_type", ev.AttackType)
 		return
 	}
-	incidentID := uuid()
 	eventID := ev.ProcessedAt.Format(time.RFC3339Nano)
 	go func() {
 		defer func() { <-s.agent.slots }()
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
+		var playbook strings.Builder
 		err := agent.RunIncidentStream(ctx, s.agent.client, s.agent.model, s.agent.registry, ev,
 			func(e agent.AgentEvent) {
+				if e.Type == "chunk" {
+					playbook.WriteString(e.Data)
+				}
 				msg, _ := json.Marshal(map[string]string{
 					"incident_id": incidentID, "event_id": eventID, "type": e.Type, "data": e.Data,
 				})
@@ -392,6 +419,14 @@ func (s *Server) maybeInvestigate(ev models.ClassifiedEvent) {
 			})
 		if err != nil {
 			slog.Error("incident agent failed", "component", "api", "incident", incidentID, "error", err)
+			return
+		}
+		if s.incidents != nil && strings.TrimSpace(playbook.String()) != "" {
+			noteCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if _, err := s.incidents.Note(noteCtx, incidentID, "ai-agent", incident.ActivityInvestigation, playbook.String()); err != nil {
+				slog.Error("save investigation failed", "component", "api", "incident", incidentID, "error", err)
+			}
 		}
 	}()
 }
