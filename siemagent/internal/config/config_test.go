@@ -14,7 +14,7 @@ func clearLLMEnv(t *testing.T) {
 		"KIMCHI_API_KEY", "KIMCHI_BASE_URL", "OPENAI_API_KEY", "SIEM_MODEL",
 		"OLLAMA_URL", "OLLAMA_MODEL", "SIEM_API_KEYS", "POSTGRES_DSN",
 		"SYSLOG_UDP_ADDR", "SYSLOG_TCP_ADDR", "DETECTION_MODE", "SIGMA_RULES_DIR",
-		"INCIDENT_WINDOW", "INCIDENT_MIN_SEVERITY",
+		"INCIDENT_WINDOW", "INCIDENT_MIN_SEVERITY", "PLAYBOOKS_DIR", "RESPONSE_WEBHOOK_URL", "SLACK_WEBHOOK_URL",
 	} {
 		t.Setenv(k, "")
 	}
@@ -175,5 +175,21 @@ func TestIncidentSettings(t *testing.T) {
 				t.Fatalf("want %s error, got %v", k, err)
 			}
 		})
+	}
+}
+
+func TestResponseSettings(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("GEMINI_API_KEY", "k")
+	t.Setenv("RESPONSE_WEBHOOK_URL", " https://automation.example/hook ")
+	t.Setenv("PLAYBOOKS_DIR", "/pb")
+	cfg := Load()
+	if cfg.ResponseWebhookURL != "https://automation.example/hook" || cfg.PlaybooksDir != "/pb" || cfg.Validate() != nil {
+		t.Fatalf("settings: %+v %v", cfg, cfg.Validate())
+	}
+	t.Setenv("SLACK_WEBHOOK_URL", "hooks.slack.com/services/SECRET")
+	err := Load().Validate()
+	if err == nil || !strings.Contains(err.Error(), "SLACK_WEBHOOK_URL") || strings.Contains(err.Error(), "SECRET") {
+		t.Fatalf("want a URL error without the secret, got %v", err)
 	}
 }

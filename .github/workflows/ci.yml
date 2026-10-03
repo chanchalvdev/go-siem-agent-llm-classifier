@@ -77,7 +77,7 @@ jobs:
         env:
           POSTGRES_TEST_DSN: postgres://siemagent:siemagent@localhost:5432/siemagent?sslmode=disable
           QDRANT_TEST_HOST: localhost:6334
-        run: go test -race -tags integration -timeout 180s ./internal/store/... ./internal/incident/... ./pkg/qdrant/...
+        run: go test -race -tags integration -timeout 180s ./internal/store/... ./internal/incident/... ./internal/response/... ./pkg/qdrant/...
 
   web:
     name: Web (lint, typecheck, test, build)

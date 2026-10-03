@@ -44,6 +44,11 @@ type Config struct {
 	// Incident correlation (see Incidents). Raw values; Validate checks them.
 	IncidentWindowRaw      string // e.g. "1h"; default 1h
 	IncidentMinSeverityRaw string // P1–P5; default P3
+
+	// Response playbooks.
+	PlaybooksDir       string // extra playbooks (.yml)
+	ResponseWebhookURL string // receives block_ip / disable_user / isolate_host
+	SlackWebhookURL    string // Slack incoming webhook for notify actions
 }
 
 func Load() Config {
@@ -64,6 +69,10 @@ func Load() Config {
 
 		IncidentWindowRaw:      strings.TrimSpace(os.Getenv("INCIDENT_WINDOW")),
 		IncidentMinSeverityRaw: strings.ToUpper(strings.TrimSpace(os.Getenv("INCIDENT_MIN_SEVERITY"))),
+
+		PlaybooksDir:       os.Getenv("PLAYBOOKS_DIR"),
+		ResponseWebhookURL: strings.TrimSpace(os.Getenv("RESPONSE_WEBHOOK_URL")),
+		SlackWebhookURL:    strings.TrimSpace(os.Getenv("SLACK_WEBHOOK_URL")),
 	}
 
 	cfg.Provider = strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
@@ -127,6 +136,12 @@ func (c Config) Incidents() (window time.Duration, minSeverity string, err error
 func (c Config) Validate() error {
 	if _, _, err := c.Incidents(); err != nil {
 		return err
+	}
+	for name, v := range map[string]string{"RESPONSE_WEBHOOK_URL": c.ResponseWebhookURL, "SLACK_WEBHOOK_URL": c.SlackWebhookURL} {
+		if v != "" && !strings.HasPrefix(v, "https://") && !strings.HasPrefix(v, "http://") {
+			// Never echo the value: webhook URLs often embed a secret token.
+			return fmt.Errorf("%s must be an http(s) URL", name)
+		}
 	}
 	switch c.Provider {
 	case ProviderGemini:

@@ -26,6 +26,7 @@ import (
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
 	"github.com/chverma/siemagent/internal/pipeline"
+	"github.com/chverma/siemagent/internal/response"
 	"github.com/chverma/siemagent/internal/store"
 	"github.com/chverma/siemagent/pkg/ollama"
 	pkgqdrant "github.com/chverma/siemagent/pkg/qdrant"
@@ -178,10 +179,17 @@ func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
-		opts = append(opts, api.WithIncidents(newIncidentService(cfg, incStore)))
+		actStore, err := response.NewPostgres(ctx, pg.Pool())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		incidents := newIncidentService(cfg, incStore)
+		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, actStore, incidents)))
 	} else {
 		slog.Warn("POSTGRES_DSN not set: events are kept in memory and lost on restart", "component", "main")
-		opts = append(opts, api.WithIncidents(newIncidentService(cfg, incident.NewMemory())))
+		incidents := newIncidentService(cfg, incident.NewMemory())
+		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, response.NewMemory(), incidents)))
 	}
 
 	if !cfg.AuthEnabled() {
@@ -243,6 +251,26 @@ func newIncidentService(cfg config.Config, st incident.Store) *incident.Service 
 	window, minSev, _ := cfg.Incidents() // checked by cfg.Validate at start
 	slog.Info("incident correlation enabled", "component", "main", "window", window, "min_severity", minSev)
 	return incident.NewService(st, incident.Config{Window: window, MinSeverity: models.Severity(minSev)})
+}
+
+// newResponseEngine loads built-in and PLAYBOOKS_DIR playbooks.
+func newResponseEngine(cfg config.Config, st response.Store, incidents *incident.Service) *response.Engine {
+	pbs, errs := response.LoadBuiltin()
+	if cfg.PlaybooksDir != "" {
+		more, moreErrs := response.LoadDir(cfg.PlaybooksDir)
+		pbs = append(pbs, more...)
+		errs = append(errs, moreErrs...)
+	}
+	exec := response.NewHTTPExecutor(response.Connectors{
+		ContainmentURL: cfg.ResponseWebhookURL, SlackURL: cfg.SlackWebhookURL,
+	})
+	engine, dupErrs := response.NewEngine(pbs, st, exec, incidents)
+	for _, e := range append(errs, dupErrs...) {
+		slog.Warn("playbook skipped", "component", "main", "error", e)
+	}
+	slog.Info("response playbooks loaded", "component", "main", "playbooks", len(engine.Playbooks()),
+		"containment_webhook", cfg.ResponseWebhookURL != "", "slack", cfg.SlackWebhookURL != "")
+	return engine
 }
 
 // connectQdrant returns a search store only when Qdrant actually answers.
