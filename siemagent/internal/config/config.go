@@ -25,9 +25,12 @@ type Config struct {
 
 func Load() Config {
 	// GEMINI_API_KEY takes precedence; otherwise fall back to Kimchi/OpenAI.
+	// Each provider reads its own model variable so a leftover Kimchi
+	// SIEM_MODEL is never sent to Gemini.
 	provider := "gemini"
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	baseURL := os.Getenv("GEMINI_BASE_URL")
+	model := os.Getenv("GEMINI_MODEL")
 	defaultBaseURL, defaultModel := geminiBaseURL, geminiModel
 	if apiKey == "" {
 		provider = "kimchi"
@@ -36,13 +39,12 @@ func Load() Config {
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
 		baseURL = os.Getenv("KIMCHI_BASE_URL")
+		model = os.Getenv("SIEM_MODEL")
 		defaultBaseURL, defaultModel = kimchiBaseURL, kimchiModel
 	}
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
-
-	model := os.Getenv("SIEM_MODEL")
 	if model == "" {
 		model = defaultModel
 	}
