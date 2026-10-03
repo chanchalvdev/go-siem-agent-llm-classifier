@@ -26,6 +26,7 @@ import (
 	"github.com/chverma/siemagent/internal/metrics"
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
+	"github.com/chverma/siemagent/internal/response"
 	"github.com/chverma/siemagent/internal/store"
 )
 
@@ -60,6 +61,7 @@ type Server struct {
 	agent      *agentRuntime     // nil when Phase 3 agent disabled
 	detections *detection.Engine // nil when detection rules are off
 	incidents  *incident.Service // nil when correlation is off
+	response   *response.Engine  // nil when playbooks are off
 }
 
 // maxConcurrentInvestigations caps agent runs in flight. Bulk ingest and
@@ -173,6 +175,12 @@ func (s *Server) buildRouter() *chi.Mux {
 			r.Post("/incidents/{id}/investigate", s.handleInvestigateIncident)
 			r.Get("/incidents/{id}/report", s.handleIncidentReport)
 			r.Post("/incidents/{id}/feedback", s.handleIncidentFeedback)
+			r.Post("/incidents/{id}/playbooks/{playbook}/run", s.handleRunPlaybook)
+
+			r.Get("/playbooks", s.handleListPlaybooks)
+			r.Get("/response/actions", s.handleListActions)
+			r.Post("/response/actions/{id}/approve", s.handleApproveAction)
+			r.Post("/response/actions/{id}/reject", s.handleRejectAction)
 		})
 
 		// Legacy top-level routes for backward compatibility
@@ -381,6 +389,7 @@ func (s *Server) record(ev models.ClassifiedEvent) {
 	if !ok {
 		return
 	}
+	s.respond(res.Incident, ev)
 	// Investigate once per incident, when it opens as P1/P2 or escalates
 	// into P1/P2, rather than once per alert: a 500-event brute force must
 	// not start 50 agent runs.

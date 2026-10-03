@@ -41,6 +41,8 @@ tags:
     description: Sigma detection rules
   - name: Incidents
     description: Correlated alerts and case management
+  - name: Response
+    description: Playbooks and approved response actions
   - name: Analytics
     description: Event analytics
   - name: Observability
@@ -656,6 +658,99 @@ paths:
         "400": {description: No investigation to rate, or invalid body}
         "404": {description: Unknown incident}
 
+  /api/incidents/{id}/playbooks/{playbook}/run:
+    post:
+      tags: [Response]
+      summary: Propose a playbook's actions for an incident
+      description: Ignores the playbook's trigger; its mode (approval, dry_run, auto) still applies. Already-proposed actions are not repeated.
+      operationId: runPlaybook
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+        - {name: playbook, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: Newly proposed actions (may be empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/ResponseAction"}
+        "404": {description: Unknown incident}
+        "409": {description: Unknown playbook}
+
+  # ── Response ──────────────────────────────────────────────────────────────────
+
+  /api/playbooks:
+    get:
+      tags: [Response]
+      summary: Loaded playbooks
+      operationId: listPlaybooks
+      responses:
+        "200":
+          description: Playbooks sorted by name
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/Playbook"}
+
+  /api/response/actions:
+    get:
+      tags: [Response]
+      summary: Response actions, newest first
+      operationId: listResponseActions
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [pending, dry_run, running, succeeded, failed, rejected]}}
+        - {name: incident, in: query, schema: {type: string}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 500, default: 200}}
+      responses:
+        "200":
+          description: Actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/ResponseAction"}
+
+  /api/response/actions/{id}/approve:
+    post:
+      tags: [Response]
+      summary: Approve and run a pending action
+      operationId: approveResponseAction
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: The action in its final state (succeeded or failed)
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ResponseAction"}
+        "404": {description: Unknown action}
+        "409": {description: The action is not pending}
+
+  /api/response/actions/{id}/reject:
+    post:
+      tags: [Response]
+      summary: Reject a pending action
+      operationId: rejectResponseAction
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: {type: string, maxLength: 1000}
+      responses:
+        "200":
+          description: The rejected action
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ResponseAction"}
+        "404": {description: Unknown action}
+        "409": {description: The action is not pending}
+
   # ── Analytics ─────────────────────────────────────────────────────────────────
 
   /api/analytics/summary:
@@ -744,6 +839,49 @@ paths:
 
 components:
   schemas:
+    ResponseAction:
+      type: object
+      properties:
+        id: {type: string, example: ACT-ED461BC5}
+        incident_id: {type: string}
+        playbook_id: {type: string}
+        playbook_name: {type: string}
+        type: {type: string, enum: [block_ip, disable_user, isolate_host, notify, webhook]}
+        target: {type: string, example: 185.220.101.77}
+        message: {type: string}
+        step: {type: integer}
+        status: {type: string, enum: [pending, dry_run, running, succeeded, failed, rejected]}
+        reason: {type: string}
+        result: {type: string}
+        proposed_at: {type: string, format: date-time}
+        decided_by: {type: string}
+        decided_at: {type: string, format: date-time}
+        executed_at: {type: string, format: date-time}
+
+    Playbook:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        description: {type: string}
+        mode: {type: string, enum: [approval, dry_run, auto]}
+        enabled: {type: boolean}
+        source: {type: string}
+        trigger:
+          type: object
+          properties:
+            min_severity: {type: string}
+            tactics: {type: array, items: {type: string}}
+            techniques: {type: array, items: {type: string}}
+            attack_types: {type: array, items: {type: string}}
+        actions:
+          type: array
+          items:
+            type: object
+            properties:
+              type: {type: string}
+              message: {type: string}
+
     Entity:
       type: object
       properties:
@@ -803,7 +941,7 @@ components:
         incident_id: {type: string}
         at: {type: string, format: date-time}
         actor: {type: string, example: analyst}
-        kind: {type: string, enum: [created, escalated, status, assignee, severity, resolution, comment, investigation, feedback]}
+        kind: {type: string, enum: [created, escalated, status, assignee, severity, resolution, comment, investigation, feedback, response]}
         body: {type: string}
 
     IncidentDetail:

@@ -38,6 +38,11 @@ const api = vi.hoisted(() => ({
   investigateIncident: vi.fn(),
   getIncidentReport: vi.fn(),
   rateInvestigation: vi.fn(),
+  listActions: vi.fn(),
+  listPlaybooks: vi.fn(),
+  runPlaybook: vi.fn(),
+  approveAction: vi.fn(),
+  rejectAction: vi.fn(),
   apiError: (e: unknown) => (e instanceof Error ? e.message : String(e)),
 }))
 vi.mock('../lib/api', () => api)
@@ -54,6 +59,8 @@ beforeEach(() => {
   api.getIncident.mockResolvedValue(detail)
   api.updateIncident.mockResolvedValue({ ...open, status: 'investigating' })
   api.investigateIncident.mockResolvedValue(undefined)
+  api.listActions.mockResolvedValue([])
+  api.listPlaybooks.mockResolvedValue([])
   api.getIncidentReport.mockResolvedValue('# Incident report: SSH Brute Force\n\n## AI investigation')
   api.rateInvestigation.mockResolvedValue({ id: 10, incident_id: open.id, at: now, actor: 'analyst', kind: 'feedback', body: 'x' })
   api.addIncidentComment.mockResolvedValue({ id: 9, incident_id: open.id, at: now, actor: 'analyst', kind: 'comment', body: 'x' })

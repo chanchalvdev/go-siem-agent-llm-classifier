@@ -1,0 +1,44 @@
+# Built-in response playbooks. All propose actions for analyst approval;
+# copy one into PLAYBOOKS_DIR with a new id and "mode: auto" once you trust it.
+id: contain-brute-force-source
+name: Contain brute-force source
+description: Block the source IP of a password-guessing or spraying attack at the edge.
+mode: approval
+trigger:
+  min_severity: P2
+  techniques: [T1110]
+actions:
+  - type: block_ip
+---
+id: contain-compromised-account
+name: Contain compromised account
+description: When an attacker escalates privileges or moves laterally, disable the accounts involved and isolate the hosts. Built-in accounts such as root are never proposed.
+mode: approval
+trigger:
+  min_severity: P1
+  tactics: [Privilege Escalation, Lateral Movement]
+actions:
+  - type: disable_user
+  - type: isolate_host
+---
+id: ransomware-isolation
+name: Ransomware isolation
+description: Isolate any host showing ransomware precursors such as shadow copy deletion.
+mode: approval
+trigger:
+  min_severity: P1
+  tactics: [Impact]
+actions:
+  - type: isolate_host
+  - type: notify
+    message: ":rotating_light: Possible ransomware on {{entities}}: {{title}} ({{id}}). Host isolation awaits approval."
+---
+id: notify-critical-incident
+name: Notify on critical incidents
+description: Post every P1 incident to the security channel. Dry run until SLACK_WEBHOOK_URL is set and the mode is switched.
+mode: dry_run
+trigger:
+  min_severity: P1
+actions:
+  - type: notify
+    message: "[{{severity}}] {{title}} ({{id}}): {{entities}}"

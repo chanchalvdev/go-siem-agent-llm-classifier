@@ -40,7 +40,7 @@ project's LLM agent stands out, so the platform is built around it.
 | 5 | Detection engine | 🚧 In progress |
 | 6 | Incidents and case management | 🚧 Core done (attachments, suppression open) |
 | 7 | AI investigation 2.0 | 🚧 In progress |
-| 8 | Response and automation | Planned |
+| 8 | Response and automation | 🚧 Core done (native connectors open) |
 | 9 | Multi-user, RBAC and multi-tenancy | Planned |
 | 10 | Advanced analytics and hunting | Planned |
 | — | Integrations (ongoing track) | Planned |
@@ -119,18 +119,20 @@ Turn the existing agent into an analyst that works on whole incidents.
 
 ## Phase 8 — Response and automation (SOAR)
 
-From finding to fixing.
+From finding to fixing. See [docs/RESPONSE.md](docs/RESPONSE.md).
 
-- [ ] **Playbook engine** — declarative playbooks (YAML) triggered by
-      detections or incident types
-- [ ] **Response actions** — block IP (firewall / cloud security group),
-      disable user (Active Directory / Okta / Entra ID), isolate host,
-      revoke sessions, quarantine file
-- [ ] **Human-in-the-loop approvals** — actions are proposed with the AI's
-      reasoning; one click approves, everything is audited
-- [ ] **Notifications and ticketing** — Slack, Microsoft Teams, email,
-      PagerDuty, Jira, ServiceNow
-- [ ] **Dry-run mode** — show what a playbook would have done, before trusting it
+- [x] **Playbook engine** — declarative playbooks (YAML) triggered by
+      severity, tactics, techniques or attack types
+- [x] **Response actions** — block IP, disable user, isolate host, delivered
+      to your automation through a containment webhook
+- [ ] **Native connectors** — firewalls and cloud security groups, Active
+      Directory / Okta / Entra ID, EDR isolation, without a webhook in between
+- [x] **Human-in-the-loop approvals** — actions are proposed; one click
+      approves or rejects, everything is audited on the incident
+- [x] **Notifications** — Slack and generic webhooks
+- [ ] **More channels and ticketing** — Microsoft Teams, email, PagerDuty,
+      Jira, ServiceNow
+- [x] **Dry-run mode** — show what a playbook would have done, before trusting it
 
 ## Phase 9 — Multi-user, RBAC and multi-tenancy
 

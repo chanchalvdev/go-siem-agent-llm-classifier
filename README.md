@@ -383,6 +383,16 @@ history. See [docs/INCIDENTS.md](docs/INCIDENTS.md).
 - `GET /api/incidents/{id}/report`: Markdown incident report
 - `POST /api/incidents/{id}/feedback` with `{"helpful": true}`
 
+### Response playbooks
+
+Playbooks propose actions (block IP, disable user, isolate host, notify) that
+analysts approve. See [docs/RESPONSE.md](docs/RESPONSE.md).
+
+- `GET /api/playbooks`
+- `GET /api/response/actions?status=pending`
+- `POST /api/response/actions/{id}/approve` · `POST /api/response/actions/{id}/reject`
+- `POST /api/incidents/{id}/playbooks/{playbook}/run`
+
 ### `GET /api/search?q=brute+force&limit=10`
 
 Semantic vector search over stored events.
