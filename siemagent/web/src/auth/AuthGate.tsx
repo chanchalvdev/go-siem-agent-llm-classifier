@@ -11,7 +11,15 @@ import type { AuthContextValue, Permission } from './auth'
 // then provides who they are and what they may do to the app.
 export function AuthGate({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
-  const me = useQuery({ queryKey: ['me'], queryFn: getMe, retry: false, staleTime: 60_000 })
+  const me = useQuery({
+    queryKey: ['me'],
+    queryFn: getMe,
+    retry: false,
+    staleTime: 60_000,
+    // While the backend is down (still compiling, crashed, restarting), keep
+    // checking so the app recovers by itself once it answers.
+    refetchInterval: (q) => (q.state.error && !isUnauthorized(q.state.error) ? 3000 : false),
+  })
 
   useEffect(() => {
     const onExpired = () => { void qc.invalidateQueries({ queryKey: ['me'] }) }
@@ -35,19 +43,61 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (me.isLoading) {
     return <div className="flex h-screen items-center justify-center bg-canvas text-sm text-fg-subtle">Loading…</div>
   }
-  const unauthorized = axios.isAxiosError(me.error) && me.error.response?.status === 401
-  if (unauthorized || !value) {
-    return (
-      <LoginForm
-        error={!unauthorized && me.error ? 'Cannot reach the SIEMAgent server.' : undefined}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ['me'] })}
-      />
-    )
+  if (me.error && !isUnauthorized(me.error)) {
+    return <ServerUnavailable error={me.error} onRetry={() => void me.refetch()} retrying={me.isFetching} />
+  }
+  // A 401 always means "log in", even though the previous user's data is
+  // still cached from before the session expired.
+  if (isUnauthorized(me.error) || !value) {
+    return <LoginForm onSuccess={() => qc.invalidateQueries({ queryKey: ['me'] })} />
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-function LoginForm({ onSuccess, error }: { onSuccess: () => void; error?: string }) {
+function isUnauthorized(err: unknown): boolean {
+  return axios.isAxiosError(err) && err.response?.status === 401
+}
+
+// describe explains why the backend didn't answer, in terms of what to check.
+function describe(err: unknown): { title: string; detail: string } {
+  const status = axios.isAxiosError(err) ? err.response?.status : undefined
+  if (status === 404) {
+    return {
+      title: 'The backend is running an older version',
+      detail: 'It does not know /api/auth/me. Stop the backend and start it again from the latest code (make dev).',
+    }
+  }
+  if (status && status < 500) {
+    return { title: `The backend answered ${status}`, detail: 'Check the backend terminal for the error.' }
+  }
+  return {
+    title: 'Cannot reach the SIEMAgent backend',
+    detail:
+      'The dashboard is up but the Go server on port 8080 is not answering. It may still be starting, or it stopped with an error: check the terminal running make dev (look for a line starting with "error:").',
+  }
+}
+
+function ServerUnavailable({ error, onRetry, retrying }: { error: unknown; onRetry: () => void; retrying: boolean }) {
+  const { title, detail } = describe(error)
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-canvas p-4">
+      <section role="alert" aria-labelledby="down-title" className="w-full max-w-md space-y-3 rounded-xl border border-line bg-surface p-6 shadow-pop">
+        <h1 id="down-title" className="text-base font-semibold text-fg">{title}</h1>
+        <p className="text-sm text-fg-muted">{detail}</p>
+        <p className="text-xs text-fg-subtle">Retrying automatically every few seconds.</p>
+        <button
+          onClick={onRetry}
+          disabled={retrying}
+          className="rounded-lg border border-line-strong px-3 py-1.5 text-sm text-fg hover:bg-fg/4 disabled:opacity-40"
+        >
+          {retrying ? 'Checking…' : 'Retry now'}
+        </button>
+      </section>
+    </main>
+  )
+}
+
+function LoginForm({ onSuccess }: { onSuccess: () => void }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -82,8 +132,8 @@ function LoginForm({ onSuccess, error }: { onSuccess: () => void; error?: string
             <p className="text-xs text-fg-subtle">AI security operations</p>
           </div>
         </div>
-        {(failure || error) && (
-          <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">{failure ?? error}</p>
+        {failure && (
+          <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">{failure}</p>
         )}
         <label className="block space-y-1 text-xs text-fg-muted">
           Username

@@ -83,3 +83,26 @@ describe('AuthGate', () => {
     expect(await screen.findByRole('heading', { name: 'Sign in to SIEMAgent' })).toBeInTheDocument()
   })
 })
+
+function serverError(status?: number) {
+  const headers = new AxiosHeaders()
+  const res = status ? { status, statusText: '', headers: {}, config: { headers }, data: {} } : undefined
+  return new AxiosError('down', status ? 'ERR_BAD_RESPONSE' : 'ERR_NETWORK', { headers }, null, res)
+}
+
+describe('AuthGate when the backend is down', () => {
+  it('explains instead of showing the login, and recovers on retry', async () => {
+    api.getMe.mockRejectedValueOnce(serverError(502)).mockResolvedValue(ana)
+    renderWithQuery(<AuthGate><Who /></AuthGate>)
+    expect(await screen.findByRole('heading', { name: 'Cannot reach the SIEMAgent backend' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Username')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry now' }))
+    expect(await screen.findByText('signed in as ana')).toBeInTheDocument()
+  })
+
+  it('names an outdated backend', async () => {
+    api.getMe.mockRejectedValue(serverError(404))
+    renderWithQuery(<AuthGate><Who /></AuthGate>)
+    expect(await screen.findByRole('heading', { name: 'The backend is running an older version' })).toBeInTheDocument()
+  })
+})
