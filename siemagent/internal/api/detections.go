@@ -83,7 +83,7 @@ func (s *Server) handleUpdateDetectionRule(w http.ResponseWriter, r *http.Reques
 		}
 	}
 	s.detections.SetEnabled(id, *req.Enabled)
-	slog.Info("detection rule updated", "component", "api", "rule", rule.ID, "enabled", *req.Enabled)
+	slog.Info("detection rule updated", "component", "api", "rule", logsafe.String(rule.ID), "enabled", rule.Enabled())
 	writeJSON(w, http.StatusOK, toDetectionRule(rule))
 }
 
