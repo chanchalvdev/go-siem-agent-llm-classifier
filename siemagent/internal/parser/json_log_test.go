@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"testing"
 	"time"
 )
@@ -11,14 +10,14 @@ func TestParseJSON(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name        string
-		line        string
-		wantSource  string // "json" or "raw"
-		wantMsg     string
-		wantHost    string
-		wantApp     string
-		wantTSApprox bool   // timestamp should be approximately now (fallback)
-		wantErr     bool   // expect nil events or fallback to raw
+		name         string
+		line         string
+		wantSource   string // "json" or "raw"
+		wantMsg      string
+		wantHost     string
+		wantApp      string
+		wantTSApprox bool // timestamp should be approximately now (fallback)
+		wantErr      bool // expect nil events or fallback to raw
 	}{
 		{
 			name:       "logrus format",
@@ -109,7 +108,7 @@ func TestParseJSON(t *testing.T) {
 // Ensure ParseLineWithFormat("json") rejects non-JSON as raw.
 func TestParseLineWithFormat_JSON(t *testing.T) {
 	p := New()
-	line := fmt.Sprintf(`<165>1 2024-01-15T10:30:00Z host sshd 1 - msg`)
+	line := `<165>1 2024-01-15T10:30:00Z host sshd 1 - msg`
 	events := p.ParseLineWithFormat(line, "json")
 	if len(events) == 0 {
 		t.Fatal("expected fallback event")

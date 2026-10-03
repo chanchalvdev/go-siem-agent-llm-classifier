@@ -62,12 +62,12 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 		count := 0
 		for ev := range resultsCh {
 			results = append(results, ev)
-			s.events.Add(ev)
+			s.record(ev)
 			count++
 			// Flush progress every 10 events.
 			if count%10 == 0 && canFlush {
 				progress, _ := json.Marshal(map[string]int{"progress": count, "accepted": accepted})
-				fmt.Fprintf(w, "%s\n", progress)
+				_, _ = fmt.Fprintf(w, "%s\n", progress)
 				flusher.Flush()
 			}
 		}
@@ -94,7 +94,7 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 		Results:    results,
 	}
 	final, _ := json.Marshal(resp)
-	fmt.Fprintf(w, "%s\n", final)
+	_, _ = fmt.Fprintf(w, "%s\n", final)
 	if canFlush {
 		flusher.Flush()
 	}
@@ -178,6 +178,45 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 // ── GET /api/analytics/summary ───────────────────────────────────────────────
 
 func (s *Server) handleAnalyticsSummary(w http.ResponseWriter, r *http.Request) {
-	summary := s.events.Summary()
+	summary, err := s.events.Summary(r.Context())
+	if err != nil {
+		slog.Error("analytics summary failed", "component", "api", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "analytics unavailable"})
+		return
+	}
 	writeJSON(w, http.StatusOK, summary)
+}
+
+// ── GET /api/events ──────────────────────────────────────────────────────────
+
+const (
+	defaultEventsLimit = 100
+	maxEventsLimit     = 500
+)
+
+// handleEvents returns the most recent classified events, newest first, so the
+// dashboard can show history that survives a page reload or server restart.
+func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
+	limit := defaultEventsLimit
+	if v := r.URL.Query().Get("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > maxEventsLimit {
+			writeJSON(w, http.StatusBadRequest, models.ValidationError{
+				Error: fmt.Sprintf("limit must be between 1 and %d", maxEventsLimit), Field: "limit",
+			})
+			return
+		}
+		limit = n
+	}
+
+	events, err := s.events.Recent(r.Context(), limit)
+	if err != nil {
+		slog.Error("list events failed", "component", "api", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "events unavailable"})
+		return
+	}
+	for i := range events {
+		events[i] = sanitizeEvent(events[i])
+	}
+	writeJSON(w, http.StatusOK, events)
 }

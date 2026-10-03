@@ -60,22 +60,22 @@ type IngestRequest struct {
 
 // IngestResponse is the HTTP response body for POST /ingest.
 type IngestResponse struct {
-	Accepted   int              `json:"accepted"`
-	Classified int              `json:"classified"`
-	Errors     int              `json:"errors"`
+	Accepted   int               `json:"accepted"`
+	Classified int               `json:"classified"`
+	Errors     int               `json:"errors"`
 	Results    []ClassifiedEvent `json:"results"`
 }
 
 // SearchHit is a single result from the semantic search endpoint.
 type SearchHit struct {
-	EventID     string    `json:"event_id"`
-	Timestamp   string    `json:"timestamp"`
-	Source      string    `json:"source"`
-	AttackType  string    `json:"attack_type"`
-	Severity    Severity  `json:"severity"`
-	Summary     string    `json:"summary"`
-	MITRETactic string    `json:"mitre_tactic"`
-	Score       float32   `json:"score"`
+	EventID     string   `json:"event_id"`
+	Timestamp   string   `json:"timestamp"`
+	Source      string   `json:"source"`
+	AttackType  string   `json:"attack_type"`
+	Severity    Severity `json:"severity"`
+	Summary     string   `json:"summary"`
+	MITRETactic string   `json:"mitre_tactic"`
+	Score       float32  `json:"score"`
 }
 
 // LLMAnalysis is the JSON shape the LLM must return.

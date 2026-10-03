@@ -37,8 +37,14 @@ func sanitizeEvent(ev models.ClassifiedEvent) models.ClassifiedEvent {
 	ev.Summary = stripControl(ev.Summary)
 	ev.AttackType = stripControl(ev.AttackType)
 	ev.Remediation = stripControl(ev.Remediation)
-	for i, ioc := range ev.IOCs {
-		ev.IOCs[i] = stripControl(ioc)
+	// Copy the slice: its backing array is shared with the stored event, and
+	// concurrent requests sanitising it in place would race.
+	if ev.IOCs != nil {
+		iocs := make([]string, len(ev.IOCs))
+		for i, ioc := range ev.IOCs {
+			iocs[i] = stripControl(ioc)
+		}
+		ev.IOCs = iocs
 	}
 	return ev
 }

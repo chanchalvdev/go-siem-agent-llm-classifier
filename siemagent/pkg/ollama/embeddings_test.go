@@ -18,7 +18,7 @@ func mockOllamaServer(t *testing.T, dims int) (*httptest.Server, *atomic.Int64) 
 		for i := range vec {
 			vec[i] = float32(i) * 0.001
 		}
-		json.NewEncoder(w).Encode(map[string]any{"embedding": vec})
+		_ = json.NewEncoder(w).Encode(map[string]any{"embedding": vec})
 	}))
 	return srv, &calls
 }

@@ -86,7 +86,7 @@ func (o *OTX) fetch(ctx context.Context, section, indicator string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("otx: request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", fmt.Errorf("otx: status %d", resp.StatusCode)
 	}

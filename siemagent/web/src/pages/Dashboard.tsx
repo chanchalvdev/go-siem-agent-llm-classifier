@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Shield, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown, BookOpen } from 'lucide-react'
-import { classifyLog } from '../lib/api'
+import { classifyLog, listEvents } from '../lib/api'
 import type { ClassifiedEvent } from '../lib/api'
 import type { Severity } from '../styles/tokens'
 import { EventCard } from '../components/EventCard'
@@ -21,7 +21,8 @@ function useEventStore() {
   const qc = useQueryClient()
   const { data: events = [] } = useQuery<ClassifiedEvent[]>({
     queryKey: [EVENTS_KEY],
-    queryFn: () => [],
+    // Load stored history once; new classifications are prepended locally.
+    queryFn: () => listEvents(100),
     staleTime: Infinity,
   })
   function addEvent(ev: ClassifiedEvent) {

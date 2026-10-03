@@ -55,7 +55,7 @@ func BenchmarkClassifyEndpoint(b *testing.B) {
 				b.Errorf("POST /classify: %v", err)
 				continue
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
 				b.Errorf("unexpected status %d", resp.StatusCode)
 			}
@@ -78,7 +78,7 @@ func BenchmarkClassifyEndpoint_Sequential(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 }
 

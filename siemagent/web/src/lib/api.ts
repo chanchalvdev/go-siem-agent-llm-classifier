@@ -38,12 +38,30 @@ export interface HealthStatus {
   status: string
 }
 
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+// API key for servers started with SIEM_API_KEYS. Vite compiles it into the
+// bundle, so anyone who can load the dashboard can read it: fine for local or
+// single-team installs, not a substitute for SSO in front of a shared one.
+const apiKey: string = import.meta.env.VITE_SIEM_API_KEY ?? ''
+
+export function authHeaders(): Record<string, string> {
+  return apiKey ? { 'X-API-Key': apiKey } : {}
+}
+
+// Browsers cannot set headers on a WebSocket handshake, so the server accepts
+// the key as a query parameter on upgrade requests only.
+export function withApiKey(url: string): string {
+  if (!apiKey) return url
+  return `${url}${url.includes('?') ? '&' : '?'}api_key=${encodeURIComponent(apiKey)}`
+}
+
 // ── Axios instance ────────────────────────────────────────────────────────────
 
 const client = axios.create({
   baseURL: '/api',
   timeout: 30_000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', ...authHeaders() },
 })
 
 // Log request duration in development
@@ -67,6 +85,13 @@ if (import.meta.env.DEV) {
 
 export async function classifyLog(log: string, format?: string): Promise<ClassifiedEvent> {
   const { data } = await client.post<ClassifiedEvent>('/classify', { log, format: format ?? 'auto' })
+  return data
+}
+
+// Most recent stored events, newest first. With Postgres configured this
+// includes history from before the last server restart.
+export async function listEvents(limit = 100): Promise<ClassifiedEvent[]> {
+  const { data } = await client.get<ClassifiedEvent[]>('/events', { params: { limit } })
   return data
 }
 
@@ -133,12 +158,16 @@ export function classifyLogStream(
 
   fetch('/api/classify/stream', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ log, format }),
     signal: controller.signal,
   })
     .then(async (res) => {
-      const reader = res.body!.getReader()
+      if (!res.ok || !res.body) {
+        onError(res.status === 401 ? 'Unauthorized: check VITE_SIEM_API_KEY' : `Request failed (${res.status})`)
+        return
+      }
+      const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buf = ''
 

@@ -20,9 +20,11 @@ import (
 	"github.com/chverma/siemagent/internal/api"
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/config"
+	"github.com/chverma/siemagent/internal/ingest"
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
 	"github.com/chverma/siemagent/internal/pipeline"
+	"github.com/chverma/siemagent/internal/store"
 	"github.com/chverma/siemagent/pkg/ollama"
 	pkgqdrant "github.com/chverma/siemagent/pkg/qdrant"
 )
@@ -44,8 +46,8 @@ func main() {
 		cfg.Workers = *workers
 	}
 
-	if cfg.APIKey == "" {
-		fmt.Fprintln(os.Stderr, "error: set GEMINI_API_KEY (or KIMCHI_API_KEY / OPENAI_API_KEY) before running")
+	if err := cfg.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -72,26 +74,36 @@ func main() {
 			fmt.Fprintf(os.Stderr, "open output: %v\n", err)
 			os.Exit(1)
 		}
-		defer f.Close()
 		out = f
 	}
 
 	runCLI(args, cfg, cls, out)
+
+	// A failed close on a written file can mean lost results, so report it.
+	if out != os.Stdout {
+		if err := out.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "write output: %v\n", err)
+			os.Exit(1)
+		}
+	}
 }
 
 func runServer(cfg config.Config, cls *classifier.Classifier) {
-	// Wire up Phase 2 RAG components (non-fatal if unavailable).
+	// ctx is cancelled on SIGINT/SIGTERM and drives every shutdown below.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	embedder := ollama.NewEmbedder(cfg.OllamaURL)
 
 	var opts []api.ServerOption
 	reg := buildRegistry()
-	qdrantStore, err := pkgqdrant.NewAPIStore(cfg.QdrantAddr, "siem_events")
-	if err != nil {
+
+	// Semantic search needs Qdrant. The client connects lazily, so creating it
+	// succeeds even when Qdrant is down: only a working EnsureCollection
+	// proves the store is reachable.
+	if qdrantStore, err := connectQdrant(ctx, cfg.QdrantAddr); err != nil {
 		slog.Warn("Qdrant unavailable, semantic search disabled", "component", "main", "error", err)
 	} else {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		_ = qdrantStore.EnsureCollection(ctx, 768)
-		cancel()
 		cls.WithIndexing(embedder, qdrantStore.Store)
 		opts = append(opts, api.WithSearch(qdrantStore, embedder))
 		// Give the agent recall over past events (only when the store is up).
@@ -99,29 +111,86 @@ func runServer(cfg config.Config, cls *classifier.Classifier) {
 		slog.Info("Qdrant connected, semantic search enabled", "component", "main")
 	}
 
-	// Wire up Phase 3 agent: tool registry + live incident stream over WebSocket.
+	// Durable event storage. Without Postgres events live in memory and are
+	// lost on restart, so a configured-but-unreachable database is fatal
+	// rather than a silent downgrade.
+	if cfg.PostgresDSN != "" {
+		dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		pg, err := store.OpenPostgres(dbCtx, cfg.PostgresDSN)
+		cancel()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		defer pg.Close()
+		opts = append(opts, api.WithStore(pg))
+		slog.Info("events persisted to Postgres", "component", "main")
+	} else {
+		slog.Warn("POSTGRES_DSN not set: events are kept in memory and lost on restart", "component", "main")
+	}
+
+	if !cfg.AuthEnabled() {
+		slog.Warn("SIEM_API_KEYS not set: the API is open to anyone who can reach it", "component", "main")
+	}
+
+	// Live incident stream: tool registry + WebSocket hub.
 	opts = append(opts, api.WithAgent(buildHub(), cls.OpenAIClient(), cfg.ModelName, reg))
 
 	srv := api.New(cfg, cls, opts...)
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	// Network log ingestion (syslog over UDP/TCP).
+	var live *api.LiveIngest
+	var syslogListener *ingest.SyslogListener
+	if cfg.SyslogUDPAddr != "" || cfg.SyslogTCPAddr != "" {
+		// Workers share ctx so shutdown cancels in-flight LLM calls instead of
+		// waiting for a full queue to drain.
+		live = srv.StartLiveIngest(ctx)
+		l, err := ingest.ListenSyslog(ctx, cfg.SyslogUDPAddr, cfg.SyslogTCPAddr,
+			func(transport, line string) { live.Submit(transport, line) })
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		syslogListener = l
+		slog.Info("syslog listener started", "component", "main",
+			"udp", cfg.SyslogUDPAddr, "tcp", cfg.SyslogTCPAddr)
+	}
 
 	go func() {
+		<-ctx.Done()
 		slog.Info("shutting down", "component", "main")
-		<-stop
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		if err := srv.HTTPServer().Shutdown(ctx); err != nil {
+		if err := srv.HTTPServer().Shutdown(shutdownCtx); err != nil {
 			slog.Error("shutdown error", "component", "main", "error", err)
 		}
-		slog.Info("shutdown complete", "component", "main")
 	}()
 
 	if err := srv.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		fmt.Fprintf(os.Stderr, "server: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Stop accepting syslog, then wait for the workers to exit.
+	if syslogListener != nil {
+		syslogListener.Wait()
+		live.Close()
+	}
+	slog.Info("shutdown complete", "component", "main")
+}
+
+// connectQdrant returns a search store only when Qdrant actually answers.
+func connectQdrant(ctx context.Context, addr string) (*pkgqdrant.APIStore, error) {
+	qs, err := pkgqdrant.NewAPIStore(addr, "siem_events")
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := qs.EnsureCollection(ctx, 768); err != nil {
+		return nil, fmt.Errorf("ensure collection: %w", err)
+	}
+	return qs, nil
 }
 
 // buildHub creates the WebSocket hub for the live incident stream.
@@ -226,7 +295,7 @@ func parseFile(path string, p *parser.Parser) ([]models.LogEvent, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var events []models.LogEvent
 	scanner := bufio.NewScanner(f)
@@ -303,14 +372,14 @@ func printSummaryTable(events []models.ClassifiedEvent, out *os.File) {
 	})
 
 	reset := "\033[0m"
-	fmt.Fprintln(out, "\nClassification Summary")
-	fmt.Fprintln(out, strings.Repeat("─", 60))
-	fmt.Fprintf(out, "%-10s %-30s %6s\n", "Severity", "Attack Type", "Count")
-	fmt.Fprintln(out, strings.Repeat("─", 60))
+	_, _ = fmt.Fprintln(out, "\nClassification Summary")
+	_, _ = fmt.Fprintln(out, strings.Repeat("─", 60))
+	_, _ = fmt.Fprintf(out, "%-10s %-30s %6s\n", "Severity", "Attack Type", "Count")
+	_, _ = fmt.Fprintln(out, strings.Repeat("─", 60))
 	for _, r := range rows {
 		color := severityColor(r.severity)
-		fmt.Fprintf(out, "%s%-10s%s %-30s %6d\n",
+		_, _ = fmt.Fprintf(out, "%s%-10s%s %-30s %6d\n",
 			color, r.severity, reset, r.attackType, r.count)
 	}
-	fmt.Fprintln(out, strings.Repeat("─", 60))
+	_, _ = fmt.Fprintln(out, strings.Repeat("─", 60))
 }
