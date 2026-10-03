@@ -29,9 +29,9 @@ func TestLoadGemini(t *testing.T) {
 func TestLoadGeminiModelOverride(t *testing.T) {
 	clearLLMEnv(t)
 	t.Setenv("GEMINI_API_KEY", "g-key")
-	t.Setenv("GEMINI_MODEL", "gemini-2.5-pro")
+	t.Setenv("GEMINI_MODEL", "gemini-3.8-pro")
 
-	if got := Load().ModelName; got != "gemini-2.5-pro" {
+	if got := Load().ModelName; got != "gemini-3.8-pro" {
 		t.Fatalf("want model override, got %s", got)
 	}
 }

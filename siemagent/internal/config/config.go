@@ -6,7 +6,7 @@ import "os"
 // client works against it unchanged.
 const (
 	geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-	geminiModel   = "gemini-2.5-flash"
+	geminiModel   = "gemini-3.8-flash"
 	kimchiBaseURL = "https://api.kimchi.ai/v1"
 	kimchiModel   = "kimi-k2-5"
 )
