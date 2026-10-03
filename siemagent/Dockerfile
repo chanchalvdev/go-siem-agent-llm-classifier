@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # API image: static Go binary on distroless, running as non-root.
 
-FROM golang:1.25-bookworm AS build
+FROM golang:1.27-bookworm AS build
 WORKDIR /src
 ENV CGO_ENABLED=0 GOTOOLCHAIN=auto
 COPY go.mod go.sum ./
