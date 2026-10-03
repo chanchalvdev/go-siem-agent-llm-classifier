@@ -22,7 +22,7 @@ func TestPostgresContract(t *testing.T) {
 		t.Fatalf("open: %v", err)
 	}
 	defer pg.Close()
-	if _, err := pg.pool.Exec(ctx, `TRUNCATE events`); err != nil {
+	if _, err := pg.pool.Exec(ctx, `TRUNCATE events, rule_states`); err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
 
@@ -34,4 +34,5 @@ func TestPostgresContract(t *testing.T) {
 	pg2.Close()
 
 	testStoreContract(t, pg)
+	testRuleStatesContract(t, pg)
 }

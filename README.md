@@ -361,7 +361,13 @@ Most recent stored events, newest first (`limit` 1–500, default 100). With Pos
 
 ### `GET /api/detections/rules`
 
-Loaded Sigma rules with level, tags, source and match count since start.
+Loaded Sigma rules with level, tags, source, type (`single` or `threshold`),
+enabled state and match count since start.
+
+### `PATCH /api/detections/rules/{id}`
+
+Enable or disable a rule: `{"enabled": false}`. Saved in Postgres, so it
+survives restarts.
 
 ### `GET /api/search?q=brute+force&limit=10`
 

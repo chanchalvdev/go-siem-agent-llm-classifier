@@ -2,9 +2,10 @@
 //
 // Supported: field selections with the contains, startswith, endswith, all,
 // re (with i), cidr and exists modifiers; Sigma wildcards (* ?) with
-// case-insensitive matching; keyword lists; null values; and conditions with
-// and/or/not, parentheses and "1 of" / "all of" patterns or "them".
-// Aggregations, correlations and rule collections are skipped with a warning.
+// case-insensitive matching; keyword lists; null values; conditions with
+// and/or/not, parentheses and "1 of" / "all of" patterns or "them"; and
+// count() thresholds over a timeframe ("| count() by src_ip > 10").
+// Other aggregations, correlations and rule collections are skipped.
 package detection
 
 import (
@@ -15,6 +16,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/chverma/siemagent/internal/metrics"
 	"github.com/chverma/siemagent/internal/models"
@@ -27,12 +29,13 @@ var builtinRules embed.FS
 type Engine struct {
 	rules []*Rule
 	byID  map[string]*Rule
+	now   func() time.Time // clock for threshold windows; replaced in tests
 }
 
 // NewEngine builds an engine. Rules with duplicate IDs are reported and
 // skipped (first one wins).
 func NewEngine(rules []*Rule) (*Engine, []error) {
-	e := &Engine{byID: make(map[string]*Rule, len(rules))}
+	e := &Engine{byID: make(map[string]*Rule, len(rules)), now: time.Now}
 	var errs []error
 	for _, r := range rules {
 		if prev, dup := e.byID[r.ID]; dup {
@@ -105,20 +108,44 @@ func (e *Engine) Rule(id string) (*Rule, bool) {
 	return r, ok
 }
 
-// Match returns every rule that fires on ev, most severe first.
+// SetEnabled turns a rule on or off. Disabling a threshold rule clears its
+// counters, so re-enabling starts from zero.
+func (e *Engine) SetEnabled(id string, enabled bool) bool {
+	r, ok := e.byID[id]
+	if !ok {
+		return false
+	}
+	r.disabled.Store(!enabled)
+	if !enabled && r.agg != nil {
+		r.agg.reset()
+	}
+	return true
+}
+
+// Match returns every rule that fires on ev, most severe first. A threshold
+// rule fires on the event that crosses its threshold.
 func (e *Engine) Match(ev models.LogEvent) []models.Detection {
 	if len(e.rules) == 0 {
 		return nil
 	}
 	f := eventFields(ev)
+	now := e.now()
 	var out []models.Detection
 	for _, r := range e.rules {
-		if !r.matches(f) {
+		if !r.Enabled() || !r.matches(f) {
 			continue
+		}
+		d := models.Detection{RuleID: r.ID, Title: r.Title, Level: r.Level, Tags: r.Tags}
+		if r.agg != nil {
+			res, fired := r.agg.observe(f, now)
+			if !fired {
+				continue
+			}
+			d.Count, d.Group, d.Threshold = res.Count, res.Group, r.agg.describe()
 		}
 		r.hits.Add(1)
 		metrics.DetectionMatchesTotal.WithLabelValues(r.ID, r.Level).Inc()
-		out = append(out, models.Detection{RuleID: r.ID, Title: r.Title, Level: r.Level, Tags: r.Tags})
+		out = append(out, d)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return levelRank[out[i].Level] > levelRank[out[j].Level] })
 	return out

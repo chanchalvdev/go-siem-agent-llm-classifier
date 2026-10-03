@@ -58,6 +58,11 @@ type Detection struct {
 	Title  string   `json:"title"`
 	Level  string   `json:"level"` // informational | low | medium | high | critical
 	Tags   []string `json:"tags,omitempty"`
+	// Threshold rules only: how many events crossed the threshold, the
+	// group they share (e.g. "src_ip=203.0.113.7") and the threshold itself.
+	Count     int    `json:"count,omitempty"`
+	Group     string `json:"group,omitempty"`
+	Threshold string `json:"threshold,omitempty"`
 }
 
 // ClassifyRequest is the HTTP request body for POST /classify.

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -42,7 +43,9 @@ type Rule struct {
 
 	selections map[string]selection
 	condition  cond
+	agg        *aggregation // nil for single-event rules
 	hits       atomic.Int64
+	disabled   atomic.Bool
 }
 
 // Samples holds a rule's test log lines.
@@ -51,8 +54,24 @@ type Samples struct {
 	NoMatch []string `yaml:"no_match"`
 }
 
-// Hits reports how many events the rule has matched since start.
+// Hits reports how many times the rule has fired since start. For a
+// threshold rule that is the number of threshold crossings.
 func (r *Rule) Hits() int64 { return r.hits.Load() }
+
+// Enabled reports whether the rule is evaluated.
+func (r *Rule) Enabled() bool { return !r.disabled.Load() }
+
+// IsThreshold reports whether the rule aggregates events over time.
+func (r *Rule) IsThreshold() bool { return r.agg != nil }
+
+// Threshold describes the aggregation, e.g. "count() by src_ip >= 10 in 5m".
+// Empty for single-event rules.
+func (r *Rule) Threshold() string {
+	if r.agg == nil {
+		return ""
+	}
+	return r.agg.describe()
+}
 
 type ruleYAML struct {
 	Title          string         `yaml:"title"`
@@ -72,7 +91,7 @@ type ruleYAML struct {
 }
 
 // ErrUnsupported marks valid Sigma that this engine deliberately does not
-// evaluate (aggregations, correlations, multi-document collections).
+// evaluate (min/max/avg/sum aggregations, near, correlations, collections).
 var ErrUnsupported = errors.New("unsupported sigma feature")
 
 // ParseRules reads every YAML document in data. Rules that fail to compile are
@@ -126,6 +145,18 @@ func compileRule(raw ruleYAML, source string) (*Rule, error) {
 	if !ok {
 		return nil, errors.New("detection has no condition")
 	}
+	var timeframe time.Duration
+	if tf, ok := raw.Detection["timeframe"]; ok {
+		s, isStr := tf.(string)
+		if !isStr {
+			return nil, errors.New("timeframe must be a string such as 5m")
+		}
+		d, err := parseTimeframe(s)
+		if err != nil {
+			return nil, err
+		}
+		timeframe = d
+	}
 	selections := map[string]selection{}
 	var names []string
 	for name, node := range raw.Detection {
@@ -156,6 +187,19 @@ func compileRule(raw ruleYAML, source string) (*Rule, error) {
 		}
 	default:
 		return nil, errors.New("condition must be a string or list of strings")
+	}
+	// "selection | count() by src_ip > 10": the part after the pipe is a
+	// threshold over the matching events.
+	var agg *aggregation
+	if len(exprs) == 1 {
+		if base, aggExpr, found := strings.Cut(exprs[0], "|"); found {
+			a, err := parseAggregation(aggExpr, timeframe)
+			if err != nil {
+				return nil, err
+			}
+			agg = a
+			exprs[0] = base
+		}
 	}
 	var conds []cond
 	for _, e := range exprs {
@@ -188,6 +232,7 @@ func compileRule(raw ruleYAML, source string) (*Rule, error) {
 		Samples:     raw.Samples,
 		selections:  selections,
 		condition:   condition,
+		agg:         agg,
 	}, nil
 }
 

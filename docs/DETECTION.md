@@ -44,6 +44,58 @@ compiled into the binary. List what is loaded, with match counts:
 curl -H "X-API-Key: $KEY" http://localhost:8080/api/detections/rules
 ```
 
+Turn a rule off (or back on) from the **Rules** page in the dashboard, or:
+
+```bash
+curl -X PATCH -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+  -d '{"enabled": false}' http://localhost:8080/api/detections/rules/<rule-id>
+```
+
+The change applies immediately and is saved in Postgres, so it survives
+restarts (without Postgres it lasts until the server stops).
+
+## Threshold rules
+
+Some attacks are only visible in volume: one failed login is a typo, fifty
+from the same IP in five minutes is password guessing. Threshold rules use
+Sigma's `count()` aggregation over a `timeframe`:
+
+```yaml
+title: SSH Brute Force
+id: 0f6c2a4e-6a43-4a0e-9a5d-1f3f8f5b2c11
+detection:
+  selection:
+    - 'Failed password for'
+  timeframe: 5m
+  condition: selection | count() by src_ip >= 10
+level: high
+```
+
+| Form | Fires when |
+|---|---|
+| `sel \| count() > N` | more than N matching events in the timeframe |
+| `sel \| count() by src_ip >= N` | one `src_ip` reaches N matching events |
+| `sel \| count(user) by src_ip >= N` | one `src_ip` is seen with N **different** users (spraying) |
+
+- The rule fires on the event that reaches the threshold; that event carries
+  the detection with `count`, `group` (e.g. `src_ip=203.0.113.7`) and
+  `threshold`. The group's counter then starts over, so a sustained attack
+  produces one alert per threshold's worth of events, not one per event.
+- Windows are measured by when events arrive at SIEMAgent, not by the
+  timestamp written in the log line, which an attacker can forge.
+- Events without the `by` or counted field are not counted.
+- Each rule tracks at most 10,000 groups; when full, idle groups are
+  evicted first, and drops are counted in
+  `detection_aggregation_groups_dropped_total`.
+- Only `count()` with `>` or `>=` is supported. `min`, `max`, `avg`, `sum`,
+  `<` thresholds and `near` are skipped as unsupported.
+
+Built-in threshold rules: **SSH Brute Force**, **Password Spraying**, **Web
+Content Discovery Scan** and **Port Scan From One Source**.
+
+Samples for a threshold rule are sequences: replayed in order, the `match`
+lines must cross the threshold and the `no_match` lines must not.
+
 ## Adding your own rules or the SigmaHQ collection
 
 Point `SIGMA_RULES_DIR` at a folder of `.yml`/`.yaml` files; it is searched
@@ -104,6 +156,14 @@ Field names are case-insensitive. Every event has:
 | `proc_id` | `pid`, `ProcessId`, `process_id` |
 | `source` | log format: `syslog`, `json` or `raw` |
 | `raw` | the original line |
+| `src_ip` | `source.ip`, `SourceIp`, `IpAddress`, `client_ip`, `remote_addr` |
+| `user` | `user.name`, `username`, `TargetUserName`, `SubjectUserName` |
+| `dst_port` | `destination.port`, `DestinationPort`, `dport` |
+
+`src_ip`, `user` and `dst_port` are extracted from the log text (`from
+<ip>`, `for <user> from`, `SRC=`/`DPT=` firewall fields, `user=`/`ip=`
+pairs, and the client IP leading a web access log line). JSON logs use their
+own fields instead when present.
 
 For JSON logs every original field is also available, with nested keys
 joined by dots (`user.name`) and arrays joined by spaces. Keyword selections
@@ -119,10 +179,12 @@ joined by dots (`user.name`) and arrays joined by spaces. Keyword selections
   (escape with `\*`, `\?`, `\\`).
 - Conditions: `and`, `or`, `not`, parentheses, `1 of <pattern>`,
   `all of <pattern>`, `1 of them`, `all of them`, or a list of conditions.
+- Thresholds: `| count([field]) [by field] > N` or `>= N` with `timeframe`.
 
 ### Not supported (rule is skipped)
 
-- Aggregations (`| count() by … > N`) and `near` — single-event matching only.
+- Aggregations other than `count()` with `>`/`>=` (`min`, `max`, `avg`,
+  `sum`, `<`), and `near`.
 - Sigma correlation rules and rule collections (`action: global`).
 - Encoding modifiers: `base64`, `base64offset`, `utf16*`, `wide`, `windash`.
 
@@ -133,5 +195,6 @@ selections specific enough not to fire on unrelated logs.
 
 | Metric | Meaning |
 |---|---|
-| `detection_matches_total{rule,level}` | Matches per rule |
+| `detection_matches_total{rule,level}` | Matches per rule (threshold crossings for threshold rules) |
+| `detection_aggregation_groups_dropped_total` | Events a threshold rule could not track (group table full) |
 | `llm_calls_saved_total` | Events classified by rules without an LLM call |

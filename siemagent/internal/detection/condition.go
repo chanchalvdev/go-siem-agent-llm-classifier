@@ -56,7 +56,7 @@ func (c ofCond) eval(r map[string]bool) bool {
 
 // parseCondition compiles a Sigma condition such as
 // "selection and not 1 of filter_*". selections lists the defined names.
-// Aggregations ("| count() > 5") and "near" are not supported.
+// Aggregations ("| count() > 5") are split off by compileRule first.
 func parseCondition(expr string, selections []string) (cond, error) {
 	if strings.Contains(expr, "|") {
 		return nil, fmt.Errorf("%w: aggregation in condition %q", ErrUnsupported, expr)

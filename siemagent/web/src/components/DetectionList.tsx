@@ -1,13 +1,6 @@
 import { ShieldCheck } from 'lucide-react'
-import type { Detection, DetectionLevel } from '../lib/api'
-
-const LEVEL_STYLES: Record<DetectionLevel, string> = {
-  critical: 'bg-sev-p1/10 text-sev-p1 border-sev-p1/30',
-  high: 'bg-sev-p2/10 text-sev-p2 border-sev-p2/30',
-  medium: 'bg-sev-p3/10 text-sev-p3 border-sev-p3/30',
-  low: 'bg-sev-p4/10 text-sev-p4 border-sev-p4/30',
-  informational: 'bg-sev-p5/10 text-sev-p5 border-sev-p5/30',
-}
+import type { Detection } from '../lib/api'
+import { LEVEL_STYLES } from '../lib/levels'
 
 // ATT&CK tags ("attack.t1490", "attack.impact") are shown on the MITRE card;
 // only other tags (e.g. CVEs) are listed here.
@@ -29,6 +22,13 @@ export function DetectionList({ detections }: { detections: Detection[] }) {
                 {d.level}
               </span>
             </div>
+            {d.count ? (
+              <p className="mt-1 text-xs text-fg-muted">
+                <span className="font-semibold text-fg">{d.count} events</span>
+                {d.group && <> from <span className="font-mono">{d.group}</span></>}
+                {d.threshold && <span className="text-fg-subtle"> · {d.threshold}</span>}
+              </p>
+            ) : null}
             <p className="mt-0.5 truncate font-mono text-[10px] text-fg-subtle" title={d.rule_id}>{d.rule_id}</p>
             {extraTags(d.tags).length > 0 && (
               <p className="mt-1 text-[10px] text-fg-muted">{extraTags(d.tags).join(' · ')}</p>

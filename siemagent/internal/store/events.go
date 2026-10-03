@@ -13,6 +13,8 @@ const maxEvents = 1000
 // EventStore is a thread-safe ring buffer of the last N classified events.
 // It is the fallback when no database is configured; events are lost on restart.
 type EventStore struct {
+	memoryRuleStates
+
 	mu     sync.RWMutex
 	events [maxEvents]models.ClassifiedEvent
 	head   int // next write position

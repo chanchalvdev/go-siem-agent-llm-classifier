@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
@@ -56,6 +57,17 @@ func TestBuiltinRuleSamples(t *testing.T) {
 			if r.Description == "" || r.Remediation == "" || len(r.Tags) == 0 {
 				t.Fatal("rule needs description, remediation and ATT&CK tags")
 			}
+			if r.IsThreshold() {
+				// Threshold samples are sequences: the match lines together
+				// must cross the threshold, the no_match lines must not.
+				if !replayFires(r, r.Samples.Match) {
+					t.Errorf("match samples should cross %s", r.Threshold())
+				}
+				if replayFires(r, r.Samples.NoMatch) {
+					t.Errorf("no_match samples should stay under %s", r.Threshold())
+				}
+				return
+			}
 			for _, line := range r.Samples.Match {
 				if !r.matches(eventFields(parse(line))) {
 					t.Errorf("should match: %s", line)
@@ -68,6 +80,24 @@ func TestBuiltinRuleSamples(t *testing.T) {
 			}
 		})
 	}
+}
+
+// replayFires feeds lines to a threshold rule, one second apart, from a
+// clean state and reports whether it fired.
+func replayFires(r *Rule, lines []string) bool {
+	r.agg.reset()
+	defer r.agg.reset()
+	at := time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)
+	for i, line := range lines {
+		f := eventFields(parse(line))
+		if !r.matches(f) {
+			continue
+		}
+		if _, fired := r.agg.observe(f, at.Add(time.Duration(i)*time.Second)); fired {
+			return true
+		}
+	}
+	return false
 }
 
 func TestMatchOrdersBySeverity(t *testing.T) {
@@ -111,7 +141,7 @@ title: Aggregation
 id: agg-1
 detection:
   sel: {message: x}
-  condition: sel | count() > 5
+  condition: sel | max(bytes) by src_ip > 5
 ---
 title: Bad modifier
 id: bad-1
@@ -138,7 +168,7 @@ detection:
 		t.Fatalf("want 4 errors, got %d: %v", len(errs), errs)
 	}
 	if !errors.Is(errs[0], ErrUnsupported) {
-		t.Errorf("aggregation should be ErrUnsupported: %v", errs[0])
+		t.Errorf("max() aggregation should be ErrUnsupported: %v", errs[0])
 	}
 	for _, want := range []string{"base64offset", "undefined selection", "missing id"} {
 		found := false
