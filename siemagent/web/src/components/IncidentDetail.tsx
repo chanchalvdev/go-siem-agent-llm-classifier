@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle, Bot, CheckCircle2, FileText, MessageSquare, PlusCircle, Sparkles, ThumbsDown, ThumbsUp,
-  TrendingUp, UserRound, X,
+  TrendingUp, UserRound, Workflow, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -16,6 +16,7 @@ import { STATUS_LABELS, entityLabel } from '../lib/incidents'
 import { SeverityBadge } from './SeverityBadge'
 import { KillChain } from './KillChain'
 import { IncidentReport } from './IncidentReport'
+import { IncidentResponse } from './IncidentResponse'
 
 const RESOLUTION_LABELS: Record<Exclude<IncidentResolution, ''>, string> = {
   true_positive: 'True positive',
@@ -34,6 +35,7 @@ const ACTIVITY_ICONS: Record<string, LucideIcon> = {
   resolution: CheckCircle2,
   severity: AlertTriangle,
   feedback: ThumbsUp,
+  response: Workflow,
 }
 
 type TimelineItem =
@@ -183,6 +185,8 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
         <h3 id="kc-title" className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Kill chain</h3>
         <KillChain tactics={data.tactics} />
       </section>
+
+      <IncidentResponse incidentId={id} />
 
       <section aria-labelledby="entities-title">
         <h3 id="entities-title" className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Entities</h3>

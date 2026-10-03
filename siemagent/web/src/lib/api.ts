@@ -287,7 +287,7 @@ export interface IncidentAlert {
 }
 
 export type ActivityKind =
-  | 'created' | 'status' | 'assignee' | 'severity' | 'comment' | 'escalated' | 'resolution' | 'investigation' | 'feedback'
+  | 'created' | 'status' | 'assignee' | 'severity' | 'comment' | 'escalated' | 'resolution' | 'investigation' | 'feedback' | 'response'
 
 export interface IncidentActivity {
   id: number
@@ -379,5 +379,73 @@ export async function getIncidentReport(id: string): Promise<string> {
 
 export async function rateInvestigation(id: string, helpful: boolean, note = ''): Promise<IncidentActivity> {
   const { data } = await client.post<IncidentActivity>(`/incidents/${encodeURIComponent(id)}/feedback`, { helpful, note })
+  return data
+}
+
+// ── Response ──────────────────────────────────────────────────────────────────
+
+export type ActionStatus = 'pending' | 'dry_run' | 'running' | 'succeeded' | 'failed' | 'rejected'
+export type ActionType = 'block_ip' | 'disable_user' | 'isolate_host' | 'notify' | 'webhook'
+export type PlaybookMode = 'approval' | 'dry_run' | 'auto'
+
+export interface ResponseAction {
+  id: string
+  incident_id: string
+  playbook_id: string
+  playbook_name: string
+  type: ActionType
+  target?: string
+  message?: string
+  step: number
+  status: ActionStatus
+  reason: string
+  result?: string
+  proposed_at: string
+  decided_by?: string
+  decided_at?: string
+  executed_at?: string
+}
+
+export interface Playbook {
+  id: string
+  name: string
+  description?: string
+  mode: PlaybookMode
+  enabled: boolean
+  source: string
+  trigger: {
+    min_severity?: Severity
+    tactics?: string[]
+    techniques?: string[]
+    attack_types?: string[]
+  }
+  actions: { type: ActionType; message?: string }[]
+}
+
+export async function listPlaybooks(): Promise<Playbook[]> {
+  const { data } = await client.get<Playbook[]>('/playbooks')
+  return data
+}
+
+export async function listActions(filter: { status?: ActionStatus; incident?: string; limit?: number } = {}): Promise<ResponseAction[]> {
+  const params = Object.fromEntries(Object.entries(filter).filter(([, v]) => v !== undefined && v !== ''))
+  const { data } = await client.get<ResponseAction[]>('/response/actions', { params })
+  return data
+}
+
+export async function approveAction(id: string): Promise<ResponseAction> {
+  const { data } = await client.post<ResponseAction>(`/response/actions/${encodeURIComponent(id)}/approve`)
+  return data
+}
+
+export async function rejectAction(id: string, reason = ''): Promise<ResponseAction> {
+  const { data } = await client.post<ResponseAction>(`/response/actions/${encodeURIComponent(id)}/reject`, { reason })
+  return data
+}
+
+export async function runPlaybook(incidentId: string, playbookId: string): Promise<ResponseAction[]> {
+  const { data } = await client.post<ResponseAction[]>(
+    `/incidents/${encodeURIComponent(incidentId)}/playbooks/${encodeURIComponent(playbookId)}/run`,
+  )
   return data
 }

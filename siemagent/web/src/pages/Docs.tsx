@@ -221,7 +221,8 @@ export function Docs() {
               <Step n={2}><strong className="text-fg">Own it</strong>: set the status to Investigating and put your name in Assignee.</Step>
               <Step n={3}><strong className="text-fg">Read the story</strong>: the kill chain shows which ATT&CK tactics the attacker reached; the timeline shows every alert, the AI investigation and all changes.</Step>
               <Step n={4}><strong className="text-fg">Pivot</strong>: click an IP, user or host to see every incident involving it.</Step>
-              <Step n={5}><strong className="text-fg">Close it</strong>: add a comment on what you did, set Resolved and pick a resolution (true positive, false positive, benign or duplicate).</Step>
+              <Step n={5}><strong className="text-fg">Respond</strong>: playbooks propose actions (block the IP, disable the account, isolate the host). Approve or reject them in the incident or on the Response tab; nothing runs without approval unless a playbook is set to automatic.</Step>
+              <Step n={6}><strong className="text-fg">Close it</strong>: add a comment on what you did, set Resolved and pick a resolution (true positive, false positive, benign or duplicate).</Step>
             </ul>
           </section>
 
