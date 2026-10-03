@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Branch naming (docs/BRANCHING.md) plus a quick Go check before pushing.
+set -euo pipefail
+root=$(git rev-parse --show-toplevel)
+branch=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$branch" = "master" ]; then
+  echo "pre-push: push to master through a pull request, not directly." >&2
+  exit 1
+fi
+if ! [[ "$branch" =~ ^(feature|fix|hotfix|chore|docs|ci|refactor)/[a-z0-9][a-z0-9-]*$ ]]; then
+  echo "pre-push: branch '$branch' must be <type>/<kebab-name> (see docs/BRANCHING.md)." >&2
+  exit 1
+fi
+
+if git diff --name-only "@{upstream}" HEAD 2>/dev/null | grep -q '^siemagent/.*\.go$' || ! git rev-parse "@{upstream}" >/dev/null 2>&1; then
+  (cd "$root/siemagent" && go vet ./... && go test -race -timeout 120s ./...)
+fi

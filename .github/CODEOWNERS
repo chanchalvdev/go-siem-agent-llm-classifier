@@ -1,0 +1,9 @@
+# Code owners are requested for review automatically; master protection
+# requires an approving review from one of them.
+*                       @chanchalvdev
+
+# Security-sensitive areas: auth, ingestion, CI and release automation.
+/siemagent/internal/api/auth.go   @chanchalvdev
+/siemagent/internal/ingest/       @chanchalvdev
+/.github/                         @chanchalvdev
+/SECURITY.md                      @chanchalvdev

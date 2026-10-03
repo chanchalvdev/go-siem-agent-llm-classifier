@@ -4,10 +4,11 @@
 APP := siemagent
 WEB := $(APP)/web
 
-.PHONY: help quality-gate quality-go quality-web test test-integration lint \
+.PHONY: help hooks quality-gate quality-go quality-web test test-integration lint \
         build dev serve docker-up docker-down pull-models seed setup
 
 help:
+	@echo "make hooks             Install git hooks (.githooks/)"
 	@echo "make quality-gate      Everything CI checks (Go + web)"
 	@echo "make test              Go unit tests (race detector)"
 	@echo "make test-integration  Go integration tests (needs make docker-up)"
@@ -15,6 +16,10 @@ help:
 	@echo "make dev               Backend :8080 + dashboard :5173"
 	@echo "make docker-up         Start Qdrant, Ollama and Postgres"
 	@echo "Other targets: build serve docker-down pull-models seed setup"
+
+hooks:
+	git config core.hooksPath .githooks
+	@echo "Git hooks installed from .githooks/"
 
 quality-gate: quality-go quality-web
 

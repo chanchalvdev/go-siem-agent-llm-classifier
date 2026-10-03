@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Fast checks on staged files. Install with `make hooks`. CI is the source of truth.
+set -euo pipefail
+root=$(git rev-parse --show-toplevel)
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+# Never commit environment files (only .env.example is allowed).
+if echo "$staged" | grep -E '(^|/)\.env(\..+)?$' | grep -v '\.env\.example$' >/dev/null; then
+  echo "pre-commit: refusing to commit a .env file:" >&2
+  echo "$staged" | grep -E '(^|/)\.env(\..+)?$' | grep -v '\.env\.example$' >&2
+  exit 1
+fi
+
+go_files=$(echo "$staged" | grep -E '^siemagent/.*\.go$' || true)
+if [ -n "$go_files" ]; then
+  unformatted=$(cd "$root" && gofmt -l $go_files)
+  if [ -n "$unformatted" ]; then
+    echo "pre-commit: gofmt needed on:" >&2
+    echo "$unformatted" >&2
+    echo "run: gofmt -w $unformatted" >&2
+    exit 1
+  fi
+fi
+
+web_files=$(echo "$staged" | grep -E '^siemagent/web/src/.*\.(ts|tsx)$' | sed 's#^siemagent/web/##' || true)
+if [ -n "$web_files" ] && [ -d "$root/siemagent/web/node_modules" ]; then
+  (cd "$root/siemagent/web" && npx --no-install oxlint $web_files)
+fi

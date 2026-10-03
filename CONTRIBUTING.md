@@ -20,6 +20,7 @@ You need Go 1.25+, Node.js 22+ and Docker.
 ```bash
 git clone https://github.com/chanchalvdev/go-siem-agent-llm-classifier.git
 cd go-siem-agent-llm-classifier
+make hooks          # git hooks: gofmt/oxlint, Conventional Commits, branch names
 make setup          # .env from the template, Go + npm dependencies
 make docker-up      # Postgres, Qdrant, Ollama
 make dev            # backend :8080 + dashboard :5173
@@ -49,11 +50,19 @@ A pull request is ready when:
 
 ## Pull requests
 
-- Branch from `master`. Name the PR `feature/<short-name>` for features or
-  `fix/<short-name>` for fixes.
+The full workflow — branch names, merge rules, releases — is in
+[docs/BRANCHING.md](docs/BRANCHING.md). In short:
+
+- Branch from `master` as `<type>/<kebab-name>`: `feature/`, `fix/`,
+  `hotfix/`, `chore/`, `docs/`, `ci/` or `refactor/`.
+- **The PR title is the branch name** (e.g. `feature/sigma-detection-engine`).
+  CI checks this and adds the matching `type:` label; `area:` labels are
+  added from the files you change.
 - Use [Conventional Commits](https://www.conventionalcommits.org/) for commit
   messages (`feat:`, `fix:`, `docs:`, `ci:` …).
 - Keep a PR to one logical change and describe what you tested.
+- A code owner's approval and green CI (tests, CodeQL, govulncheck, secret
+  scan) are required to merge.
 
 ## Where to start
 
