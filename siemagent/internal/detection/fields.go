@@ -144,3 +144,14 @@ func firstSubmatch(res []*regexp.Regexp, text string) string {
 	}
 	return ""
 }
+
+// Entities returns the source IP, user and destination port found in an
+// event's text, keyed "src_ip", "user" and "dst_port". Used by incident
+// correlation to group alerts that share an actor.
+func Entities(ev models.LogEvent) map[string]string {
+	text := ev.Raw
+	if text == "" {
+		text = ev.Message
+	}
+	return extractEntities(text)
+}

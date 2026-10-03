@@ -72,3 +72,33 @@ func TacticName(slug string) (string, bool) {
 	n, ok := tactics[strings.ToLower(strings.ReplaceAll(strings.TrimSpace(slug), "-", "_"))]
 	return n, ok
 }
+
+// KillChain lists the ATT&CK enterprise tactics in attack order, from first
+// contact to final objective.
+var KillChain = []string{
+	"Reconnaissance",
+	"Resource Development",
+	"Initial Access",
+	"Execution",
+	"Persistence",
+	"Privilege Escalation",
+	"Defense Evasion",
+	"Credential Access",
+	"Discovery",
+	"Lateral Movement",
+	"Collection",
+	"Command and Control",
+	"Exfiltration",
+	"Impact",
+}
+
+// TacticStage returns a tactic's position in KillChain (0-based), or -1 for
+// names outside ATT&CK such as "N/A". Matching ignores case.
+func TacticStage(name string) int {
+	for i, t := range KillChain {
+		if strings.EqualFold(t, strings.TrimSpace(name)) {
+			return i
+		}
+	}
+	return -1
+}
