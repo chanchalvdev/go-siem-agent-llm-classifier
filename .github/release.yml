@@ -1,0 +1,19 @@
+# Categories for auto-generated release notes, grouped by PR label.
+changelog:
+  exclude:
+    labels: ["skip-changelog"]
+  categories:
+    - title: "⚠️ Breaking changes"
+      labels: ["breaking change"]
+    - title: "🚀 Features"
+      labels: ["type: feature"]
+    - title: "🛡️ Security"
+      labels: ["type: security"]
+    - title: "🐛 Fixes"
+      labels: ["type: fix", "type: hotfix"]
+    - title: "📚 Documentation"
+      labels: ["type: docs"]
+    - title: "🔧 Maintenance"
+      labels: ["type: chore", "type: ci", "type: refactor", "dependencies"]
+    - title: "Other changes"
+      labels: ["*"]
