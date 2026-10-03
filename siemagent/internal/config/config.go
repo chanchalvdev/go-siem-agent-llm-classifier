@@ -49,6 +49,12 @@ type Config struct {
 	PlaybooksDir       string // extra playbooks (.yml)
 	ResponseWebhookURL string // receives block_ip / disable_user / isolate_host
 	SlackWebhookURL    string // Slack incoming webhook for notify actions
+
+	// User accounts.
+	AdminUser     string // bootstrap admin, created only when no user exists
+	AdminPassword string
+	SessionTTLRaw string // e.g. "12h"
+	CookieSecure  bool   // mark the session cookie Secure (behind a TLS proxy)
 }
 
 func Load() Config {
@@ -73,6 +79,11 @@ func Load() Config {
 		PlaybooksDir:       os.Getenv("PLAYBOOKS_DIR"),
 		ResponseWebhookURL: strings.TrimSpace(os.Getenv("RESPONSE_WEBHOOK_URL")),
 		SlackWebhookURL:    strings.TrimSpace(os.Getenv("SLACK_WEBHOOK_URL")),
+
+		AdminUser:     strings.TrimSpace(os.Getenv("SIEM_ADMIN_USER")),
+		AdminPassword: os.Getenv("SIEM_ADMIN_PASSWORD"),
+		SessionTTLRaw: strings.TrimSpace(os.Getenv("SIEM_SESSION_TTL")),
+		CookieSecure:  parseBool(os.Getenv("SIEM_COOKIE_SECURE")),
 	}
 
 	cfg.Provider = strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
@@ -132,10 +143,28 @@ func (c Config) Incidents() (window time.Duration, minSeverity string, err error
 	return window, minSeverity, nil
 }
 
+// SessionTTL returns how long a dashboard login lasts (default 12h).
+func (c Config) SessionTTL() (time.Duration, error) {
+	if c.SessionTTLRaw == "" {
+		return 12 * time.Hour, nil
+	}
+	d, err := time.ParseDuration(c.SessionTTLRaw)
+	if err != nil || d < 5*time.Minute || d > 30*24*time.Hour {
+		return 0, fmt.Errorf("SIEM_SESSION_TTL %q must be a duration between 5m and 720h", c.SessionTTLRaw)
+	}
+	return d, nil
+}
+
 // Validate reports configuration that would stop the agent from working.
 func (c Config) Validate() error {
 	if _, _, err := c.Incidents(); err != nil {
 		return err
+	}
+	if _, err := c.SessionTTL(); err != nil {
+		return err
+	}
+	if (c.AdminUser == "") != (c.AdminPassword == "") {
+		return errors.New("set both SIEM_ADMIN_USER and SIEM_ADMIN_PASSWORD, or neither")
 	}
 	for name, v := range map[string]string{"RESPONSE_WEBHOOK_URL": c.ResponseWebhookURL, "SLACK_WEBHOOK_URL": c.SlackWebhookURL} {
 		if v != "" && !strings.HasPrefix(v, "https://") && !strings.HasPrefix(v, "http://") {
@@ -167,6 +196,14 @@ func getenv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func parseBool(s string) bool {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
 }
 
 func splitList(s string) []string {

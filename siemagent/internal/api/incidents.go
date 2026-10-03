@@ -22,17 +22,6 @@ func WithIncidents(svc *incident.Service) ServerOption {
 	return func(srv *Server) { srv.incidents = svc }
 }
 
-type actorKey struct{}
-
-// actor names who made a change, for incident history. Authentication sets
-// it per request; without user accounts every change is by "analyst".
-func actor(r *http.Request) string {
-	if a, ok := r.Context().Value(actorKey{}).(string); ok && a != "" {
-		return a
-	}
-	return "analyst"
-}
-
 // correlate attaches a stored event to an incident. It returns the result
 // and whether the event joined or opened one.
 func (s *Server) correlate(ev models.ClassifiedEvent) (incident.Result, bool) {
