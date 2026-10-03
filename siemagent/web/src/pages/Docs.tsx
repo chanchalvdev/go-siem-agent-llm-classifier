@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   BookOpen, Zap, Upload, Radio, BarChart2, Search, Shield,
-  FileText, HelpCircle, Terminal, ChevronRight,
+  FileText, HelpCircle, Terminal, ChevronRight, Siren,
 } from 'lucide-react'
 import { SeverityBadge } from '../components/SeverityBadge'
 import type { Severity } from '../styles/tokens'
@@ -20,6 +20,7 @@ const SECTIONS: Section[] = [
   { id: 'quickstart', title: 'Classify your first log', icon: Zap },
   { id: 'results', title: 'Reading a result', icon: FileText },
   { id: 'upload', title: 'Bulk upload', icon: Upload },
+  { id: 'cases', title: 'Incidents & cases', icon: Siren },
   { id: 'incidents', title: 'Live investigations', icon: Radio },
   { id: 'analytics', title: 'Analytics & MITRE', icon: BarChart2 },
   { id: 'search', title: 'Similar events', icon: Search },
@@ -208,10 +209,28 @@ export function Docs() {
 
           {/* Incidents */}
           <section className="space-y-3">
+            <H id="cases"><Siren size={18} className="text-accent-text" /> Incidents & cases</H>
+            <Card>
+              You work incidents, not single log lines. Every <SeverityBadge severity="P3" size="sm" /> or more
+              severe alert joins an open incident that shares its source IP, user or host within the last hour,
+              or opens a new one. A brute force, the login that follows and a root shell on the same host become
+              one incident whose severity is its worst alert.
+            </Card>
+            <ul className="space-y-2">
+              <Step n={1}><strong className="text-fg">Triage the queue</strong>: the Incidents tab lists open incidents, most recently active first, with open P1/P2 counts and mean time to resolve.</Step>
+              <Step n={2}><strong className="text-fg">Own it</strong>: set the status to Investigating and put your name in Assignee.</Step>
+              <Step n={3}><strong className="text-fg">Read the story</strong>: the kill chain shows which ATT&CK tactics the attacker reached; the timeline shows every alert, the AI investigation and all changes.</Step>
+              <Step n={4}><strong className="text-fg">Pivot</strong>: click an IP, user or host to see every incident involving it.</Step>
+              <Step n={5}><strong className="text-fg">Close it</strong>: add a comment on what you did, set Resolved and pick a resolution (true positive, false positive, benign or duplicate).</Step>
+            </ul>
+          </section>
+
+          <section className="space-y-3">
             <H id="incidents"><Radio size={18} className="text-accent-text" /> Live incident investigations</H>
             <Card>
-              When a classification comes back <SeverityBadge severity="P1" size="sm" /> or
-              {' '}<SeverityBadge severity="P2" size="sm" />, SIEMAgent automatically launches an autonomous agent.
+              When an incident opens as (or escalates to) <SeverityBadge severity="P1" size="sm" /> or
+              {' '}<SeverityBadge severity="P2" size="sm" />, SIEMAgent automatically launches an autonomous agent, once per
+              incident. Its write-up is saved in the incident timeline.
               A banner appears at the top of the screen — click it to open the investigation.
             </Card>
             <p className="text-sm text-fg-muted">Inside an investigation you'll see:</p>
