@@ -21,6 +21,7 @@ import (
 	"github.com/chverma/siemagent/internal/agent"
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/config"
+	"github.com/chverma/siemagent/internal/detection"
 	"github.com/chverma/siemagent/internal/metrics"
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
@@ -52,10 +53,11 @@ type Server struct {
 	router     *chi.Mux
 	http       *http.Server
 	events     store.Store
-	search     Searcher      // nil when Qdrant not configured
-	embed      Embedder      // nil when Ollama not configured
-	hub        *Hub          // nil when live alert stream disabled
-	agent      *agentRuntime // nil when Phase 3 agent disabled
+	search     Searcher          // nil when Qdrant not configured
+	embed      Embedder          // nil when Ollama not configured
+	hub        *Hub              // nil when live alert stream disabled
+	agent      *agentRuntime     // nil when Phase 3 agent disabled
+	detections *detection.Engine // nil when detection rules are off
 }
 
 // maxConcurrentInvestigations caps agent runs in flight. Bulk ingest and
@@ -73,6 +75,11 @@ type agentRuntime struct {
 
 // ServerOption lets callers attach optional Phase 2/3 components.
 type ServerOption func(*Server)
+
+// WithDetections exposes the loaded detection rules over the API.
+func WithDetections(e *detection.Engine) ServerOption {
+	return func(srv *Server) { srv.detections = e }
+}
 
 // WithStore replaces the default in-memory event store (e.g. with Postgres).
 func WithStore(st store.Store) ServerOption {
@@ -146,6 +153,7 @@ func (s *Server) buildRouter() *chi.Mux {
 			r.Post("/classify/stream", s.handleClassifyStream)
 			r.Post("/ingest", s.handleIngest)
 			r.Get("/events", s.handleEvents)
+			r.Get("/detections/rules", s.handleDetectionRules)
 			r.Get("/search", s.handleSearch)
 			r.Get("/analytics/summary", s.handleAnalyticsSummary)
 		})

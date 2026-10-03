@@ -5,8 +5,13 @@ info:
   description: |
     AI-powered Security Information and Event Management (SIEM) classifier.
 
-    Parses syslog / JSON logs, classifies them with an LLM (Kimchi → kimi-k2),
-    indexes events in Qdrant for semantic search, and exposes analytics.
+    Parses syslog / JSON logs, evaluates Sigma detection rules, classifies
+    events with an LLM (Gemini, Ollama or any OpenAI-compatible API), indexes
+    them in Qdrant for semantic search, and exposes analytics.
+
+    **Authentication:** when the server runs with `SIEM_API_KEYS`, every route
+    except `/health`, `/health/ready` and `/docs` needs `Authorization: Bearer <key>`
+    or `X-API-Key: <key>`.
 
     **Severity scale**
     | Code | Meaning |
@@ -30,8 +35,12 @@ tags:
     description: Bulk log ingestion pipeline
   - name: Search
     description: Semantic vector search over past events
+  - name: Events
+    description: Stored event history
+  - name: Detection
+    description: Sigma detection rules
   - name: Analytics
-    description: In-memory event analytics
+    description: Event analytics
   - name: Observability
     description: Prometheus metrics
 
@@ -408,6 +417,49 @@ paths:
               example:
                 error: "semantic search not configured (Qdrant/Ollama not available)"
 
+  # ── Events and detection ──────────────────────────────────────────────────────
+
+  /api/events:
+    get:
+      tags: [Events]
+      summary: Recent classified events
+      description: Most recent stored events, newest first. With Postgres this includes history from before the last restart.
+      operationId: listEvents
+      parameters:
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 500, default: 100}
+      responses:
+        "200":
+          description: Events, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/ClassifiedEvent"}
+        "400":
+          description: limit out of range
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ValidationError"}
+
+  /api/detections/rules:
+    get:
+      tags: [Detection]
+      summary: Loaded detection rules
+      description: |
+        Sigma rules loaded at start (the built-in pack plus `SIGMA_RULES_DIR`),
+        with how many events each has matched since the server started.
+      operationId: listDetectionRules
+      responses:
+        "200":
+          description: Rules sorted by title
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/DetectionRule"}
+
   # ── Analytics ─────────────────────────────────────────────────────────────────
 
   /api/analytics/summary:
@@ -580,6 +632,41 @@ components:
           type: string
           format: date-time
           example: "2024-01-15T10:30:01Z"
+        detections:
+          type: array
+          description: Detection rules that matched the event.
+          items: {$ref: "#/components/schemas/Detection"}
+        classified_by:
+          type: string
+          enum: [rules, llm, llm+rules]
+          description: What produced the verdict.
+
+    Detection:
+      type: object
+      required: [rule_id, title, level]
+      properties:
+        rule_id: {type: string, example: "cd2cd99d-a2e1-4871-8eed-a9f2918b699a"}
+        title: {type: string, example: "Shadow Copies Deleted"}
+        level: {type: string, enum: [informational, low, medium, high, critical]}
+        tags:
+          type: array
+          items: {type: string}
+          example: ["attack.impact", "attack.t1490"]
+
+    DetectionRule:
+      type: object
+      required: [id, title, level, source, hits]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        description: {type: string}
+        level: {type: string, enum: [informational, low, medium, high, critical]}
+        status: {type: string, example: stable}
+        tags:
+          type: array
+          items: {type: string}
+        source: {type: string, description: '"builtin" or the rule file path'}
+        hits: {type: integer, format: int64, description: Matches since server start}
 
     ClassifyRequest:
       type: object
