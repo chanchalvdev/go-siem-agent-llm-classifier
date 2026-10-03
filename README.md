@@ -1,7 +1,10 @@
 # Go SIEM Agent — LLM Classifier
 
-A production-ready Security Information and Event Management (SIEM) agent built in Go that uses LLM-based AI to classify, triage, and investigate security log events in real time. Features a fully responsive React dashboard with semantic search, analytics, and MITRE ATT&CK mapping.
+An open-source AI security operations platform built in Go. It ingests security logs, classifies and triages them with an LLM, maps them to MITRE ATT&CK, and investigates high-severity events with an autonomous agent — with a responsive React dashboard for semantic search and analytics.
 
+Where it is heading — detection rules, incident correlation, automated response and integrations — is in the **[roadmap](ROADMAP.md)**. Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+[![CI](https://github.com/chanchalvdev/go-siem-agent-llm-classifier/actions/workflows/ci.yml/badge.svg)](https://github.com/chanchalvdev/go-siem-agent-llm-classifier/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
@@ -11,7 +14,7 @@ A production-ready Security Information and Event Management (SIEM) agent built 
 
 ## What It Does
 
-Paste or upload any log line (syslog, nginx, auth.log, Windows Event, etc.) and the agent:
+Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Event, etc.) and the agent:
 
 1. **Parses** the raw log into structured fields (host, app, timestamp, message)
 2. **Classifies** it via LLM — determines attack type, severity (P1–P5), confidence score
@@ -21,13 +24,17 @@ Paste or upload any log line (syslog, nginx, auth.log, Windows Event, etc.) and 
 6. **Stores** a vector embedding in Qdrant for semantic similarity search
 7. **Investigates** high-severity events with an autonomous LLM agent that calls threat-intel tools (MITRE, AbuseIPDB, OTX, similar-event recall)
 8. **Streams** live incidents to the dashboard over WebSocket — global alert ticker + incident detail overlay
-9. **Displays** everything in a real-time responsive dashboard
+9. **Persists** every classified event to PostgreSQL so history survives restarts
+10. **Displays** everything in a real-time responsive dashboard
 
 ---
 
 ## Features
 
-- **AI classification** — OpenAI-compatible LLM (default: Kimchi / minimax-m3) with structured JSON output
+- **AI classification** — Gemini, a fully local model via Ollama, or any OpenAI-compatible API, with structured JSON output
+- **Syslog ingestion** — UDP/TCP listener for rsyslog, syslog-ng and network devices, with back-pressure and drop metrics
+- **Durable storage** — PostgreSQL event history with an in-memory fallback for quick local runs
+- **API key authentication** — protects the API, WebSocket stream and metrics
 - **MITRE ATT&CK mapping** — tactic, technique ID, and technique name for every event
 - **Severity triage** — P1 Critical → P5 Info with visual indicators and pulse animation on P1
 - **Semantic search** — vector embeddings via Ollama + Qdrant to find similar past events
@@ -49,8 +56,8 @@ Paste or upload any log line (syslog, nginx, auth.log, Windows Event, etc.) and 
 | Layer | Technology |
 |---|---|
 | Backend | Go 1.25, Chi router |
-| LLM Provider | Kimchi (`llm.kimchi.dev`) — any OpenAI-compatible API |
-| LLM Model | minimax-m3 (configurable) |
+| LLM Provider | Gemini (default), Ollama (local), or any OpenAI-compatible API |
+| LLM Model | `gemini-3.8-flash` / `llama3.2` (configurable) |
 | Vector DB | Qdrant (gRPC) |
 | Embeddings | Ollama — `nomic-embed-text` (768-dim) |
 | Database | PostgreSQL 16 |
@@ -72,9 +79,11 @@ Paste or upload any log line (syslog, nginx, auth.log, Windows Event, etc.) and 
 │                   Go HTTP Server :8080                   │
 │   Chi router · Rate limiter · CORS · Security headers   │
 │                                                         │
+│  syslog UDP/TCP :5514    → live classification queue    │
 │  POST /api/classify      → LLM classify single log      │
 │  POST /api/classify/stream → SSE streaming classify     │
 │  POST /api/ingest        → Batch classify + store       │
+│  GET  /api/events        → Stored event history         │
 │  GET  /api/search        → Semantic vector search       │
 │  GET  /api/analytics/summary → Charts data              │
 │  GET  /ws/alerts         → Live incident WebSocket      │
@@ -84,18 +93,18 @@ Paste or upload any log line (syslog, nginx, auth.log, Windows Event, etc.) and 
 │  Agent (Phase 3): LLM tool loop → sanitize → WS hub     │
 │    tools: MITRE · AbuseIPDB · OTX · similar events      │
 └───┬───────────────┬─────────────────┬───────────────────┘
-    │               │                 │
-    ▼               ▼                 ▼
-┌───────┐    ┌──────────┐    ┌──────────────┐
-│Kimchi │    │  Qdrant  │    │    Ollama    │
-│  LLM  │    │ Vector DB│    │  Embeddings  │
-│  API  │    │  :6334   │    │   :11434     │
-└───────┘    └──────────┘    └──────────────┘
+    │               │                 │                │
+    ▼               ▼                 ▼                ▼
+┌────────┐   ┌──────────┐    ┌──────────────┐  ┌────────────┐
+│  LLM   │   │  Qdrant  │    │    Ollama    │  │ PostgreSQL │
+│Gemini /│   │ Vector DB│    │ Embeddings / │  │  events    │
+│ Ollama │   │  :6334   │    │ local LLM    │  │   :5433    │
+└────────┘   └──────────┘    └──────────────┘  └────────────┘
 ```
 
 > For a guided walkthrough of the codebase see
-> [IMPLEMENTATION_TRACE_HIGH_LEVEL.md](IMPLEMENTATION_TRACE_HIGH_LEVEL.md) (architecture & flows)
-> and [IMPLEMENTATION_TRACE_LOW_LEVEL.md](IMPLEMENTATION_TRACE_LOW_LEVEL.md) (file/line trace).
+> [docs/IMPLEMENTATION_TRACE_HIGH_LEVEL.md](docs/IMPLEMENTATION_TRACE_HIGH_LEVEL.md) (architecture & flows)
+> and [docs/IMPLEMENTATION_TRACE_LOW_LEVEL.md](docs/IMPLEMENTATION_TRACE_LOW_LEVEL.md) (file/line trace).
 
 ---
 
@@ -109,12 +118,13 @@ go-siem-agent-llm-classifier/
 │   │   ├── agent/            # LLM tool-calling agent + tools (MITRE, AbuseIPDB, OTX, similar events)
 │   │   ├── api/              # HTTP handlers, router, WS hub + sanitizer, middleware
 │   │   ├── classifier/       # LLM-based event classifier
-│   │   ├── config/           # Environment config loader
+│   │   ├── config/           # Environment config loader + provider selection
 │   │   ├── metrics/          # Prometheus metrics
+│   │   ├── ingest/           # Syslog UDP/TCP listener
 │   │   ├── models/           # Shared data models
 │   │   ├── parser/           # Syslog & JSON log parsers
 │   │   ├── pipeline/         # Concurrent worker pool
-│   │   └── store/            # In-memory event store
+│   │   └── store/            # Event store: PostgreSQL + in-memory fallback
 │   ├── pkg/
 │   │   ├── ollama/           # Ollama embeddings client
 │   │   └── qdrant/           # Qdrant vector DB client + adapter
@@ -129,7 +139,10 @@ go-siem-agent-llm-classifier/
 │   ├── docker-compose.yml    # Qdrant + Postgres + Ollama
 │   ├── Makefile              # Dev commands
 │   ├── sample.log            # Sample log file for CLI mode
-│   └── test-logs.log         # 30-line test file for UI upload
+│   └── test-logs.txt         # 30-line test file for UI upload
+├── docs/                     # Case study, development playbook, implementation traces
+├── specs/                    # Feature specs
+├── ROADMAP.md                # Platform roadmap
 └── README.md
 ```
 
@@ -144,12 +157,12 @@ go-siem-agent-llm-classifier/
 | Go | 1.25+ | Backend |
 | Node.js | 18+ | Frontend |
 | Docker + Compose | Latest | Qdrant, Postgres, Ollama |
-| Kimchi API key | — | LLM inference at `llm.kimchi.dev` |
+| LLM | — | A Gemini API key, or Ollama for a fully local model |
 
 ### 1. Clone
 
 ```bash
-git clone https://github.com/ChanchalS7/go-siem-agent-llm-classifier.git
+git clone https://github.com/chanchalvdev/go-siem-agent-llm-classifier.git
 cd go-siem-agent-llm-classifier/siemagent
 ```
 
@@ -159,20 +172,20 @@ cd go-siem-agent-llm-classifier/siemagent
 cp .env.example .env
 ```
 
-Edit `.env`:
+Edit `.env` and choose an LLM — either a Gemini key:
 
 ```env
-KIMCHI_API_KEY=your_key_here
-KIMCHI_BASE_URL=https://llm.kimchi.dev/openai/v1
-SIEM_MODEL=minimax-m3
-CONDUCTOR_PORT=8080
-ALLOWED_ORIGIN=http://localhost:5173
-QDRANT_ADDR=localhost:6334
-POSTGRES_DSN=postgres://siemagent:siemagent@localhost:5433/siemagent?sslmode=disable
-OLLAMA_URL=http://localhost:11434
+GEMINI_API_KEY=your_key_here
 ```
 
-> Get a free API key at [app.kimchi.dev](https://app.kimchi.dev). Any OpenAI-compatible provider works — set `KIMCHI_BASE_URL` and `SIEM_MODEL` accordingly.
+or a fully local model with no key (logs never leave your machine):
+
+```env
+LLM_PROVIDER=ollama
+OLLAMA_MODEL=llama3.2
+```
+
+> Get a Gemini key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). Any OpenAI-compatible provider also works — see `.env.example`.
 
 ### 3. Install dependencies
 
@@ -196,7 +209,7 @@ Starts Qdrant (vector DB), PostgreSQL, and Ollama in the background.
 make pull-models
 ```
 
-Downloads `nomic-embed-text` (~274 MB) — required for semantic search.
+Downloads `nomic-embed-text` (~274 MB, required for semantic search) and `llama3.2` (used when `LLM_PROVIDER=ollama`).
 
 ### 6. Build the backend
 
@@ -213,8 +226,10 @@ make serve
 Server starts at `http://localhost:8080`. You should see:
 
 ```
-INFO  SIEMAgent HTTP server starting  addr=:8080
+INFO  LLM provider configured  provider=gemini model=gemini-3.8-flash
 INFO  Qdrant connected, semantic search enabled
+INFO  events persisted to Postgres
+INFO  SIEMAgent HTTP server starting  addr=:8080
 ```
 
 ### 8. Start the frontend
@@ -231,20 +246,69 @@ Dashboard available at **http://localhost:5173**
 
 | Variable | Description | Default |
 |---|---|---|
-| `KIMCHI_API_KEY` | LLM provider API key | required |
-| `KIMCHI_BASE_URL` | LLM base URL | `https://llm.kimchi.dev/openai/v1` |
-| `SIEM_MODEL` | Model ID | `minimax-m3` |
+| `LLM_PROVIDER` | `gemini`, `ollama` or `openai` (OpenAI-compatible) | auto: `gemini` if `GEMINI_API_KEY` is set |
+| `GEMINI_API_KEY` | Gemini API key | — |
+| `GEMINI_MODEL` | Gemini model | `gemini-3.8-flash` |
+| `OLLAMA_MODEL` | Local chat model when `LLM_PROVIDER=ollama` | `llama3.2` |
+| `KIMCHI_API_KEY` / `OPENAI_API_KEY` | Key for an OpenAI-compatible endpoint | — |
+| `KIMCHI_BASE_URL` | OpenAI-compatible base URL | `https://api.kimchi.ai/v1` |
+| `SIEM_MODEL` | Model for the OpenAI-compatible endpoint | `kimi-k2-5` |
+| `SIEM_API_KEYS` | Comma-separated API keys; enables auth when set | empty (auth off) |
+| `POSTGRES_DSN` | Postgres connection string; empty keeps events in memory | see `.env.example` |
+| `SYSLOG_UDP_ADDR` / `SYSLOG_TCP_ADDR` | Syslog listener addresses, e.g. `:5514` | disabled |
 | `CONDUCTOR_PORT` | HTTP server port | `8080` |
 | `ALLOWED_ORIGIN` | CORS origin | `http://localhost:5173` |
 | `QDRANT_ADDR` | Qdrant gRPC address | `localhost:6334` |
-| `POSTGRES_DSN` | Postgres connection string | see `.env.example` |
-| `OLLAMA_URL` | Ollama base URL | `http://localhost:11434` |
+| `OLLAMA_URL` | Ollama base URL (embeddings, local LLM) | `http://localhost:11434` |
 | `ABUSEIPDB_KEY` | AbuseIPDB API key for the agent's IP-reputation tool | optional |
 | `OTX_API_KEY` | AlienVault OTX API key for the agent's threat-intel tool | optional |
+
+Dashboard (in `siemagent/web/.env.local`): `VITE_SIEM_API_KEY` — the key the dashboard sends when `SIEM_API_KEYS` is set.
+
+---
+
+## Sending Logs over Syslog
+
+Enable the listener in `.env`:
+
+```env
+SYSLOG_UDP_ADDR=:5514
+SYSLOG_TCP_ADDR=:5514
+```
+
+Point rsyslog at it (`/etc/rsyslog.d/90-siemagent.conf`):
+
+```
+*.* @siemagent-host:5514      # UDP
+*.* @@siemagent-host:5514     # TCP (newline-framed)
+```
+
+Or test by hand:
+
+```bash
+logger -n 127.0.0.1 -P 5514 -d "Failed password for root from 203.0.113.9 port 22 ssh2"
+```
+
+Each line is parsed (RFC 3164 / RFC 5424, falling back to raw text), queued and classified by the worker pool. When the queue is full, lines are dropped rather than slowing senders down; watch `ingest_dropped_total` in `/metrics`.
+
+---
+
+## Authentication
+
+Set `SIEM_API_KEYS` (comma-separated, so keys can be rotated) and every route except `/health`, `/health/ready` and `/docs` requires a key:
+
+```bash
+curl -H "Authorization: Bearer $KEY" http://localhost:8080/api/events
+curl -H "X-API-Key: $KEY"            http://localhost:8080/api/events
+```
+
+Browsers cannot set headers on a WebSocket handshake, so `/ws/alerts` also accepts `?api_key=<key>` (plain HTTP requests do not). See [SECURITY.md](SECURITY.md) for deployment advice.
 
 ---
 
 ## API Reference
+
+All examples assume auth is off; add `-H "X-API-Key: $KEY"` when `SIEM_API_KEYS` is set.
 
 ### `POST /api/classify`
 
@@ -284,6 +348,10 @@ curl -X POST http://localhost:8080/api/ingest \
   -d '{"logs": ["log line 1", "log line 2"], "format": "auto"}'
 ```
 
+### `GET /api/events?limit=100`
+
+Most recent stored events, newest first (`limit` 1–500, default 100). With Postgres this includes history from before the last restart.
+
 ### `GET /api/search?q=brute+force&limit=10`
 
 Semantic vector search over stored events.
@@ -307,6 +375,10 @@ websocat ws://localhost:8080/ws/alerts
 ```json
 {"status": "ok"}
 ```
+
+### `GET /health/ready`
+
+Checks the LLM, Postgres (when configured) and Qdrant; returns 503 if any is down.
 
 ### `GET /docs`
 
@@ -338,7 +410,7 @@ Click **Upload** and select any `.log` or `.txt` file. The UI classifies all lin
 A ready-made test file with 30 mixed-severity events is included:
 
 ```
-siemagent/test-logs.log
+siemagent/test-logs.txt
 ```
 
 ### Severity filter
@@ -430,6 +502,9 @@ cd siemagent
 make test                  # Go unit tests (with -race)
 make test-integration      # Integration tests (requires Qdrant running)
 
+# or, from the repository root, exactly what CI runs:
+make quality-gate
+
 cd web
 npx vitest run             # Frontend unit tests (Vitest + Testing Library)
 npx playwright test        # End-to-end tests (requires backend running)
@@ -437,6 +512,10 @@ npx playwright test        # End-to-end tests (requires backend running)
 
 ---
 
+## Contributing
+
+Bug reports, detection content, parsers and integrations are all welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get set up, and check the [roadmap](ROADMAP.md) for where help is most useful. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
 ## License
 
-MIT © [ChanchalS7](https://github.com/ChanchalS7)
+[MIT](LICENSE) © [ChanchalS7](https://github.com/ChanchalS7)

@@ -1,0 +1,42 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security vulnerabilities must not be reported here — see SECURITY.md.
+        Never paste API keys or real production logs; redact them first.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start with LLM_PROVIDER=...
+        2. POST /api/classify with ...
+        3. See error ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or output
+      description: Server log lines or API responses (redacted).
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      placeholder: e.g. master @ 85fe2f1
+  - type: dropdown
+    id: provider
+    attributes:
+      label: LLM provider
+      options: [gemini, ollama, openai-compatible, not relevant]

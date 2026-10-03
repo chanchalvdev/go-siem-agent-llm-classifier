@@ -195,3 +195,9 @@ make seed                # POST 10 sample events to /classify
 | Project start | oxlint over ESLint | 50–100x faster, sufficient for this codebase |
 | Project start | Worker pool in `pipeline/` | Backpressure, goroutine lifecycle, testability |
 | Project start | Integration tests separate build tag | CI can run unit-only without Docker |
+| 2026-10 | Gemini default LLM; `LLM_PROVIDER` selects gemini / ollama / openai | Ollama keeps logs on-host; one OpenAI-compatible client for all |
+| 2026-10 | Postgres event store behind `store.Store`, memory fallback | Durable history; unreachable configured DB is fatal, not a silent downgrade |
+| 2026-10 | API keys via `SIEM_API_KEYS` (SHA-256 + constant-time compare) | Minimal auth before RBAC/SSO; `?api_key=` only on WebSocket upgrades |
+| 2026-10 | Dropped `middleware.RealIP` | Trusted client X-Forwarded-For, letting anyone spoof past the rate limiter |
+| 2026-10 | Syslog listener sheds load (`TrySubmit`) instead of blocking | A slow LLM must never stall senders; drops are counted in metrics |
+| 2026-10 | MIT license; platform roadmap in ROADMAP.md | Open-source release as an AI SOC platform, rules-first then AI |

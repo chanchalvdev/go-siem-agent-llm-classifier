@@ -75,7 +75,7 @@ Security Operations Centers (SOCs) face three compounding problems:
 
 ### Phase 1 — Core Classification Engine
 
-The heart of the system is the `Classifier` in [`internal/classifier/classifier.go`](siemagent/internal/classifier/classifier.go).
+The heart of the system is the `Classifier` in [`internal/classifier/classifier.go`](../siemagent/internal/classifier/classifier.go).
 
 **LLM Prompt Engineering:**
 
@@ -148,7 +148,7 @@ Each classified event automatically queries Qdrant for the 5 most similar past e
 
 ### Frontend Architecture
 
-The React dashboard ([`web/src/`](siemagent/web/src/)) is built around three principles:
+The React dashboard ([`web/src/`](../siemagent/web/src/)) is built around three principles:
 
 1. **Real-time first** — Events appear immediately after classification; analytics auto-refresh every 30 seconds
 2. **Responsive at every breakpoint** — Mobile (375px) gets hamburger sidebar + bottom-sheet detail panel; desktop (1280px+) gets the full three-column layout
@@ -230,6 +230,8 @@ Jan 15 10:34:00 workstation01 powershell[7890]: Invoke-Expression (New-Object Ne
 ---
 
 ## Future Phases (Roadmap)
+
+> Superseded by the platform roadmap in [ROADMAP.md](../ROADMAP.md). Kept as written at the time of the case study.
 
 ### Phase 3 — Authentication & Multi-Tenancy
 - **API key middleware** on all `/api/*` routes with key stored in `.env`
