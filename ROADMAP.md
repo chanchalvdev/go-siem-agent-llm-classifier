@@ -38,7 +38,7 @@ project's LLM agent stands out, so the platform is built around it.
 | 3 | Investigation agent: threat-intel tools, live incident stream | ✅ Done |
 | 4 | Platform foundations | ✅ Done |
 | 5 | Detection engine | 🚧 In progress |
-| 6 | Incidents and case management | Planned |
+| 6 | Incidents and case management | 🚧 Core done (attachments, suppression open) |
 | 7 | AI investigation 2.0 | Planned |
 | 8 | Response and automation | Planned |
 | 9 | Multi-user, RBAC and multi-tenancy | Planned |
@@ -83,19 +83,21 @@ Catch known-bad activity with rules, so the LLM is reserved for what rules miss.
 
 ## Phase 6 — Incidents and case management
 
-Analysts work incidents, not log lines.
+Analysts work incidents, not log lines. See [docs/INCIDENTS.md](docs/INCIDENTS.md).
 
-- [ ] **Correlation engine** — group related alerts into one incident by
+- [x] **Correlation engine** — group related alerts into one incident by
       entity (host, user, IP) and time window, e.g. brute force → successful
       login → privilege escalation
-- [ ] **Kill-chain view** — place an incident's alerts on the MITRE ATT&CK
+- [x] **Kill-chain view** — place an incident's alerts on the MITRE ATT&CK
       chain to show how far an attacker progressed
-- [ ] **Case management** — assign, status (new / investigating / resolved),
-      severity, comments, evidence attachments, full audit history
-- [ ] **Deduplication and suppression** — collapse repeats, snooze noisy
-      sources, alert fatigue metrics
-- [ ] **Entity pages** — everything known about a host, user or IP in one place
-- [ ] **Incident timeline** — chronological view across all related events
+- [x] **Case management** — assign, status (new / investigating / resolved),
+      severity, resolution, comments, full audit history
+- [ ] **Evidence attachments** — files and screenshots on a case
+- [x] **Deduplication** — repeats join the open incident instead of opening
+      new ones; one AI investigation per incident
+- [ ] **Suppression** — snooze noisy sources, alert fatigue metrics
+- [x] **Entity view** — every incident involving a host, user or IP
+- [x] **Incident timeline** — alerts, comments, AI findings and changes in order
 
 ## Phase 7 — AI investigation 2.0
 

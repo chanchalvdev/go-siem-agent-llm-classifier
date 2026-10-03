@@ -369,6 +369,17 @@ enabled state and match count since start.
 Enable or disable a rule: `{"enabled": false}`. Saved in Postgres, so it
 survives restarts.
 
+### Incidents
+
+Related alerts are grouped into incidents with status, assignee, comments and
+history. See [docs/INCIDENTS.md](docs/INCIDENTS.md).
+
+- `GET /api/incidents?status=open&entity=ip:1.2.3.4`
+- `GET /api/incidents/stats`
+- `GET /api/incidents/{id}`
+- `PATCH /api/incidents/{id}` with `{"status","assignee","severity","resolution"}`
+- `POST /api/incidents/{id}/comments` with `{"body": "..."}`
+
 ### `GET /api/search?q=brute+force&limit=10`
 
 Semantic vector search over stored events.
