@@ -89,12 +89,26 @@ export function withApiKey(url: string): string {
   return `${url}${url.includes('?') ? '&' : '?'}api_key=${encodeURIComponent(apiKey)}`
 }
 
+// State-changing requests authenticated by the session cookie must carry this
+// header; other sites cannot add it, which blocks cross-site request forgery.
+export const CSRF_HEADERS: Record<string, string> = { 'X-Requested-With': 'siemagent' }
+
 // ── Axios instance ────────────────────────────────────────────────────────────
 
 const client = axios.create({
   baseURL: '/api',
   timeout: 30_000,
-  headers: { 'Content-Type': 'application/json', ...authHeaders() },
+  headers: { 'Content-Type': 'application/json', ...CSRF_HEADERS, ...authHeaders() },
+})
+
+// A 401 means the session ended (expired, logged out elsewhere, account
+// disabled). Listeners (the auth gate) re-check and show the login screen.
+export const SESSION_EXPIRED_EVENT = 'siem:session-expired'
+client.interceptors.response.use(undefined, (error) => {
+  if (axios.isAxiosError(error) && error.response?.status === 401 && !error.config?.url?.startsWith('/auth/')) {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
+  }
+  return Promise.reject(error)
 })
 
 // Log request duration in development
@@ -201,7 +215,7 @@ export function classifyLogStream(
 
   fetch('/api/classify/stream', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...CSRF_HEADERS, ...authHeaders() },
     body: JSON.stringify({ log, format }),
     signal: controller.signal,
   })
@@ -447,5 +461,76 @@ export async function runPlaybook(incidentId: string, playbookId: string): Promi
   const { data } = await client.post<ResponseAction[]>(
     `/incidents/${encodeURIComponent(incidentId)}/playbooks/${encodeURIComponent(playbookId)}/run`,
   )
+  return data
+}
+
+// ── Accounts ──────────────────────────────────────────────────────────────────
+
+export type Role = 'viewer' | 'analyst' | 'admin'
+
+export interface Me {
+  username: string
+  role: Role
+  /** session: logged in · api_key: VITE_SIEM_API_KEY · open: no auth configured */
+  auth: 'session' | 'api_key' | 'open'
+  id?: string
+  permissions: { read: boolean; write: boolean; admin: boolean }
+}
+
+export interface User {
+  id: string
+  username: string
+  display_name?: string
+  role: Role
+  disabled: boolean
+  created_at: string
+  last_login_at?: string
+}
+
+export interface AuditEntry {
+  id: number
+  at: string
+  actor: string
+  action: string
+  target?: string
+  status?: number
+  ip?: string
+}
+
+export async function getMe(): Promise<Me> {
+  const { data } = await client.get<Me>('/auth/me')
+  return data
+}
+
+export async function login(username: string, password: string): Promise<void> {
+  await client.post('/auth/login', { username, password })
+}
+
+export async function logout(): Promise<void> {
+  await client.post('/auth/logout')
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await client.post('/auth/password', { current_password: currentPassword, new_password: newPassword })
+}
+
+export async function listUsers(): Promise<User[]> {
+  const { data } = await client.get<User[]>('/users')
+  return data
+}
+
+export async function createUser(u: { username: string; display_name?: string; password: string; role: Role }): Promise<User> {
+  const { data } = await client.post<User>('/users', u)
+  return data
+}
+
+export async function updateUser(id: string, u: { role?: Role; disabled?: boolean; password?: string; display_name?: string }): Promise<User> {
+  const { data } = await client.patch<User>(`/users/${encodeURIComponent(id)}`, u)
+  return data
+}
+
+export async function listAudit(filter: { actor?: string; limit?: number } = {}): Promise<AuditEntry[]> {
+  const params = Object.fromEntries(Object.entries(filter).filter(([, v]) => v !== undefined && v !== ''))
+  const { data } = await client.get<AuditEntry[]>('/audit', { params })
   return data
 }

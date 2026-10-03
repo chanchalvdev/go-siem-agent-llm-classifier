@@ -157,3 +157,23 @@ describe('Incident AI actions', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Not helpful' })).not.toBeInTheDocument())
   })
 })
+
+describe('Incident detail for viewers', () => {
+  it('hides every write control', async () => {
+    const { AuthContext } = await import('../auth/auth')
+    const viewer = {
+      me: { username: 'vic', role: 'viewer' as const, auth: 'session' as const, permissions: { read: true, write: false, admin: false } },
+      can: (p: string) => p === 'read',
+      signOut: () => {},
+    }
+    renderWithQuery(<AuthContext.Provider value={viewer}><Incidents /></AuthContext.Provider>)
+    fireEvent.click(await screen.findByText(open.title))
+    await screen.findByRole('heading', { name: open.title })
+    expect(screen.queryByRole('button', { name: 'Investigate with AI' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Add a comment')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Not helpful' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Run playbook' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Status')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Report' })).toBeInTheDocument()
+  })
+})

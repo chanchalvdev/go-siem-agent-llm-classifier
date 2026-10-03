@@ -17,6 +17,7 @@ import { SeverityBadge } from './SeverityBadge'
 import { KillChain } from './KillChain'
 import { IncidentReport } from './IncidentReport'
 import { IncidentResponse } from './IncidentResponse'
+import { useAuth } from '../auth/auth'
 
 const RESOLUTION_LABELS: Record<Exclude<IncidentResolution, ''>, string> = {
   true_positive: 'True positive',
@@ -62,6 +63,7 @@ interface Props {
 
 export function IncidentDetail({ id, onClose, onEntity }: Props) {
   const qc = useQueryClient()
+  const writable = useAuth().can('write')
   const key = ['incident', id]
   const { data, isLoading, isError } = useQuery({ queryKey: key, queryFn: () => getIncident(id), refetchInterval: 10_000 })
   const [comment, setComment] = useState('')
@@ -115,13 +117,13 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
       </header>
 
       <div className="flex flex-wrap gap-2">
-        <button
+        {writable && <button
           onClick={() => investigate.mutate()}
           disabled={investigate.isPending}
           className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-strong disabled:opacity-40"
         >
           <Sparkles size={14} aria-hidden="true" /> Investigate with AI
-        </button>
+        </button>}
         <button
           onClick={() => setShowReport(true)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-line-strong px-3 py-1.5 text-sm text-fg hover:bg-fg/4"
@@ -142,7 +144,7 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
           <select
             className={fieldClass}
             value={data.status}
-            disabled={update.isPending}
+            disabled={update.isPending || !writable}
             onChange={(e) => update.mutate({ status: e.target.value as IncidentStatus })}
           >
             {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -155,6 +157,7 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
             value={assignee}
             placeholder="Unassigned"
             maxLength={100}
+            readOnly={!writable}
             onChange={(e) => setAssigneeDraft(e.target.value)}
             onBlur={saveAssignee}
             onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
@@ -165,7 +168,7 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
           <select
             className={fieldClass}
             value={data.resolution ?? ''}
-            disabled={data.status !== 'resolved' || update.isPending}
+            disabled={data.status !== 'resolved' || update.isPending || !writable}
             title={data.status !== 'resolved' ? 'Resolve the incident to record a resolution' : undefined}
             onChange={(e) => update.mutate({ resolution: e.target.value as IncidentResolution })}
           >
@@ -213,7 +216,7 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
 
       <section aria-labelledby="timeline-title">
         <h3 id="timeline-title" className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Timeline</h3>
-        <form
+        {writable && <form
           className="mb-4 flex gap-2"
           onSubmit={(e) => { e.preventDefault(); if (comment.trim()) addComment.mutate(comment.trim()) }}
         >
@@ -233,7 +236,7 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
           >
             Comment
           </button>
-        </form>
+        </form>}
         <ol className="space-y-2" aria-label="Incident timeline">
           {timeline(data).map((item) => item.type === 'alert'
             ? <AlertItem key={item.key} alert={item.alert} />
@@ -241,7 +244,7 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
               <ActivityItem
                 key={item.key}
                 activity={item.activity}
-                onRate={item.activity.id === latestInvestigation?.id && !rate.isSuccess ? (h) => rate.mutate(h) : undefined}
+                onRate={writable && item.activity.id === latestInvestigation?.id && !rate.isSuccess ? (h) => rate.mutate(h) : undefined}
               />
             ))}
         </ol>

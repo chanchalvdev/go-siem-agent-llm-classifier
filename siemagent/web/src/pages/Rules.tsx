@@ -4,6 +4,7 @@ import { Search, ShieldCheck, Timer } from 'lucide-react'
 import { listDetectionRules, setDetectionRuleEnabled } from '../lib/api'
 import type { DetectionRule } from '../lib/api'
 import { LEVEL_STYLES } from '../lib/levels'
+import { useAuth } from '../auth/auth'
 
 const RULES_KEY = ['detection-rules']
 
@@ -58,6 +59,7 @@ function Toggle({ checked, label, disabled, onChange }: {
 
 export function Rules() {
   const qc = useQueryClient()
+  const isAdmin = useAuth().can('admin')
   const [filter, setFilter] = useState<TypeFilter>('all')
   const [query, setQuery] = useState('')
   const { data: rules = [], isLoading, isError } = useQuery({
@@ -88,6 +90,7 @@ export function Rules() {
           </h1>
           <p className="mt-1 text-sm text-fg-muted">
             Sigma rules evaluated on every event. Turning a rule off takes effect immediately and is saved.
+            {!isAdmin && ' Only admins can turn rules on or off.'}
           </p>
         </header>
 
@@ -176,7 +179,7 @@ export function Rules() {
                   <Toggle
                     checked={r.enabled}
                     label={`${r.enabled ? 'Disable' : 'Enable'} ${r.title}`}
-                    disabled={toggle.isPending && toggle.variables?.id === r.id}
+                    disabled={!isAdmin || (toggle.isPending && toggle.variables?.id === r.id)}
                     onChange={(enabled) => toggle.mutate({ id: r.id, enabled })}
                   />
                   <span className="text-[11px] text-fg-subtle tabular-nums">{r.hits} hits</span>
