@@ -331,7 +331,8 @@ func (s *Service) audit(ctx context.Context, e AuditEntry) {
 		e.At = s.now().UTC()
 	}
 	if err := s.store.AddAudit(ctx, e); err != nil {
-		slog.Error("audit write failed", "component", "auth", "action", e.Action, "error", err)
+		// e's fields can carry request data, so only the error is logged.
+		slog.Error("audit write failed", "component", "auth", "error", err)
 	}
 }
 

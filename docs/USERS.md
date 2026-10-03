@@ -19,7 +19,7 @@ role can't do; for example, viewers see incidents read-only.
 | Caller | Credential | Identity in history and audit |
 |---|---|---|
 | A person in the dashboard | Username and password → session cookie | their username |
-| A script or integration | API key (`SIEM_API_KEYS`) | `api-key-<6 hex>`, acts as admin |
+| A script or integration | API key (`SIEM_API_KEYS`) | `api-key-N` (its position in `SIEM_API_KEYS`), acts as admin |
 | Nobody configured | none: **open mode**, everything allowed | `analyst` |
 
 Open mode only applies when there are **no API keys and no user accounts**.

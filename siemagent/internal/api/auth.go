@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/hex"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -52,11 +54,30 @@ func WithUsers(svc *auth.Service) ServerOption {
 	return func(srv *Server) { srv.users = svc }
 }
 
-// keyDigests hashes the configured API keys once.
+// keyMACKey is a random per-process HMAC key. API keys are compared as
+// HMAC digests: fixed length (so timing leaks neither contents nor length),
+// and useless to anyone who reads process memory but not this key.
+var keyMACKey = func() []byte {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic("crypto/rand: " + err.Error())
+	}
+	return b
+}()
+
+func keyDigest(key string) [32]byte {
+	mac := hmac.New(sha256.New, keyMACKey)
+	mac.Write([]byte(key))
+	var out [32]byte
+	copy(out[:], mac.Sum(nil))
+	return out
+}
+
+// keyDigests digests the configured API keys once.
 func keyDigests(keys []string) [][32]byte {
 	digests := make([][32]byte, len(keys))
 	for i, k := range keys {
-		digests[i] = sha256.Sum256([]byte(k))
+		digests[i] = keyDigest(k)
 	}
 	return digests
 }
@@ -98,7 +119,7 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 func (s *Server) identify(r *http.Request, digests [][32]byte) (Principal, bool) {
 	if key := requestKey(r); key != "" {
 		if i := matchKey(key, digests); i >= 0 {
-			return Principal{Name: keyName(key), Role: auth.RoleAdmin, Kind: "api_key"}, true
+			return Principal{Name: keyName(i), Role: auth.RoleAdmin, Kind: "api_key"}, true
 		}
 		return Principal{}, false
 	}
@@ -115,10 +136,10 @@ func (s *Server) identify(r *http.Request, digests [][32]byte) (Principal, bool)
 	return Principal{}, false
 }
 
-// keyName labels an API key in audit records without revealing it.
-func keyName(key string) string {
-	sum := sha256.Sum256([]byte(key))
-	return "api-key-" + hex.EncodeToString(sum[:3])
+// keyName labels an API key in audit records by its position in
+// SIEM_API_KEYS, which identifies it without revealing anything about it.
+func keyName(index int) string {
+	return fmt.Sprintf("api-key-%d", index+1)
 }
 
 // require rejects callers whose role lacks the permission.
@@ -176,7 +197,7 @@ func matchKey(key string, digests [][32]byte) int {
 	if key == "" {
 		return -1
 	}
-	got := sha256.Sum256([]byte(key))
+	got := keyDigest(key)
 	found := -1
 	for i, d := range digests {
 		if subtle.ConstantTimeCompare(got[:], d[:]) == 1 {

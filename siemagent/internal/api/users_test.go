@@ -251,3 +251,19 @@ func TestOpenModeWithoutUsersOrKeys(t *testing.T) {
 		t.Fatalf("open mode: %d %v", code, me)
 	}
 }
+
+func TestAPIKeyIdentityInMe(t *testing.T) {
+	ts, _ := usersServer(t, "first-key", "second-key")
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer second-key")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var me map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&me)
+	if me["username"] != "api-key-2" || me["auth"] != "api_key" {
+		t.Fatalf("me = %v", me)
+	}
+}
