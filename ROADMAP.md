@@ -37,7 +37,7 @@ project's LLM agent stands out, so the platform is built around it.
 | 2 | RAG: embeddings, Qdrant semantic search, analytics | ✅ Done |
 | 3 | Investigation agent: threat-intel tools, live incident stream | ✅ Done |
 | 4 | Platform foundations | ✅ Done |
-| 5 | Detection engine | Next |
+| 5 | Detection engine | 🚧 In progress |
 | 6 | Incidents and case management | Planned |
 | 7 | AI investigation 2.0 | Planned |
 | 8 | Response and automation | Planned |
@@ -64,14 +64,17 @@ What had to exist before the platform could be used, trusted and open-sourced.
 
 Catch known-bad activity with rules, so the LLM is reserved for what rules miss.
 
-- [ ] **Sigma rule engine** — load community [Sigma](https://github.com/SigmaHQ/sigma)
-      rules (3,000+) and evaluate them against every event
+- [x] **Sigma rule engine** — load community [Sigma](https://github.com/SigmaHQ/sigma)
+      rules (3,000+) and evaluate them against every event (single-event
+      rules; aggregations still to come — see [docs/DETECTION.md](docs/DETECTION.md))
 - [ ] **Field normalisation** — map parsed logs onto a common schema
       (ECS or OCSF) so one rule works across log sources
-- [ ] **Rule-first pipeline** — rule matches create alerts directly; only
+- [x] **Rule-first pipeline** — rule matches create alerts directly; only
       unmatched or ambiguous events go to the LLM (big cost/latency reduction)
-- [ ] **Detection-as-code** — custom rules in git, with tests that replay
+- [x] **Detection-as-code** — custom rules in git, with tests that replay
       sample logs against them
+- [ ] **Aggregation rules** — `count() by` thresholds over time windows
+      (e.g. 20 failed logins from one IP in 5 minutes)
 - [ ] **Rule management UI** — enable/disable, tune thresholds, see hit counts
       and false-positive rates
 - [ ] **IOC watchlists** — match IPs, domains and hashes from threat feeds

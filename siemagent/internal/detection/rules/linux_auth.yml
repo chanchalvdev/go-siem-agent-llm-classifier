@@ -1,0 +1,114 @@
+title: SSH Password Authentication Failure
+id: a4d1327c-0f50-47bf-b9a6-7876256dd646
+status: stable
+description: An SSH login failed because of a wrong password. One failure is routine; many from the same source indicate password guessing.
+author: siemagent contributors
+tags:
+  - attack.credential_access
+  - attack.t1110.001
+logsource:
+  product: linux
+  service: sshd
+detection:
+  keywords:
+    - 'Failed password for'
+  condition: keywords
+falsepositives:
+  - Users mistyping their password
+level: low
+remediation: If this source repeats, block it at the firewall, enforce key-based SSH authentication and disable password logins.
+samples:
+  match:
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 185.220.101.4 port 52211 ssh2'
+    - '<34>1 2026-10-03T10:00:00Z web01 sshd 4721 - Failed password for invalid user admin from 10.0.0.9 port 22 ssh2'
+  no_match:
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Accepted publickey for deploy from 10.0.0.2 port 51122 ssh2'
+---
+title: SSH Login Attempt for Nonexistent User
+id: a7b4db07-383a-426a-8472-43f8540a6482
+status: stable
+description: Someone tried to log in over SSH as a user that does not exist, typical of automated username enumeration.
+author: siemagent contributors
+tags:
+  - attack.credential_access
+  - attack.t1110
+logsource:
+  product: linux
+  service: sshd
+detection:
+  keywords:
+    - 'Invalid user * from'
+  condition: keywords
+falsepositives:
+  - Misconfigured automation using a removed account
+level: low
+remediation: Block the source if it repeats and consider fail2ban or an allow-list for SSH.
+samples:
+  match:
+    - 'Oct 11 22:14:15 web01 sshd[811]: Invalid user oracle from 45.33.32.156 port 40022'
+  no_match:
+    - 'Oct 11 22:14:15 web01 sshd[811]: Connection closed by 45.33.32.156 port 40022'
+---
+title: Sudo to an Interactive Root Shell
+id: abda46e4-0933-4639-bb06-2518a39f6d8b
+status: test
+description: A user ran an interactive shell as root through sudo, which bypasses per-command auditing.
+author: siemagent contributors
+tags:
+  - attack.privilege_escalation
+  - attack.t1548.003
+logsource:
+  product: linux
+  service: sudo
+detection:
+  selection_sudo:
+    - app_name: sudo
+    - message|contains: 'sudo:'
+  selection_root:
+    message|contains: 'USER=root'
+  selection_shell:
+    message|contains:
+      - 'COMMAND=/bin/bash'
+      - 'COMMAND=/bin/sh'
+      - 'COMMAND=/usr/bin/bash'
+      - 'COMMAND=/bin/zsh'
+      - 'COMMAND=/usr/bin/su'
+  condition: all of selection_*
+falsepositives:
+  - Administrators who routinely work in root shells
+level: high
+remediation: Confirm the user was authorised; restrict sudoers to specific commands instead of shells.
+samples:
+  match:
+    - '<34>1 2026-10-03T10:32:00Z app01 sudo 3456 - deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/bin/bash'
+  no_match:
+    - '<34>1 2026-10-03T10:32:00Z app01 sudo 3456 - deploy : TTY=pts/0 ; USER=root ; COMMAND=/usr/bin/systemctl restart nginx'
+---
+title: Read of /etc/shadow
+id: e66fd951-fd6f-4e69-a057-8d958c6a1ab4
+status: experimental
+description: A command read the password hash file, a step in offline password cracking.
+author: siemagent contributors
+tags:
+  - attack.credential_access
+  - attack.t1003.008
+logsource:
+  product: linux
+detection:
+  selection:
+    message|contains:
+      - 'cat /etc/shadow'
+      - 'cp /etc/shadow'
+      - 'less /etc/shadow'
+      - 'base64 /etc/shadow'
+      - 'unshadow '
+  condition: selection
+falsepositives:
+  - Backup tooling that copies system files
+level: high
+remediation: Treat local password hashes as exposed; rotate credentials and investigate how the user gained root.
+samples:
+  match:
+    - '<34>1 2026-10-03T10:40:00Z app01 bash 777 - root ran: cat /etc/shadow'
+  no_match:
+    - '<34>1 2026-10-03T10:40:00Z app01 passwd 777 - password changed for deploy'

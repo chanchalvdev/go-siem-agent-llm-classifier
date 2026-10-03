@@ -29,6 +29,21 @@ var (
 		},
 	)
 
+	DetectionMatchesTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "detection_matches_total",
+			Help: "Detection rule matches, by rule ID and level.",
+		},
+		[]string{"rule", "level"},
+	)
+
+	LLMCallsSavedTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "llm_calls_saved_total",
+			Help: "Events classified by detection rules alone, without an LLM call.",
+		},
+	)
+
 	StoreErrorsTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "store_errors_total",

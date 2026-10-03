@@ -1,4 +1,5 @@
 import type { ClassifiedEvent } from '../lib/api'
+import { RuleBadge } from './DetectionList'
 import { SEVERITY_COLORS } from '../styles/tokens'
 import { SeverityBadge } from './SeverityBadge'
 import { MITREBadge } from './MITREBadge'
@@ -46,6 +47,7 @@ export function EventCard({ event, onClick, selected, score }: Props) {
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <SeverityBadge severity={sev} size="sm" />
             <span className="text-sm font-semibold text-fg truncate">{event.attack_type}</span>
+            <RuleBadge classifiedBy={event.classified_by} />
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {score !== undefined && (

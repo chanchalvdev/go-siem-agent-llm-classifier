@@ -29,9 +29,33 @@ export interface Classification {
   summary: string
 }
 
+export type DetectionLevel = 'informational' | 'low' | 'medium' | 'high' | 'critical'
+
+export interface Detection {
+  rule_id: string
+  title: string
+  level: DetectionLevel
+  tags?: string[]
+}
+
 export interface ClassifiedEvent extends Classification {
   event: LogEvent
   processed_at: string
+  /** Detection rules that matched this event. */
+  detections?: Detection[]
+  /** What produced the verdict. Absent on events stored before rules existed. */
+  classified_by?: 'rules' | 'llm' | 'llm+rules'
+}
+
+export interface DetectionRule {
+  id: string
+  title: string
+  description?: string
+  level: DetectionLevel
+  status?: string
+  tags?: string[]
+  source: string
+  hits: number
 }
 
 export interface HealthStatus {
@@ -92,6 +116,11 @@ export async function classifyLog(log: string, format?: string): Promise<Classif
 // includes history from before the last server restart.
 export async function listEvents(limit = 100): Promise<ClassifiedEvent[]> {
   const { data } = await client.get<ClassifiedEvent[]>('/events', { params: { limit } })
+  return data
+}
+
+export async function listDetectionRules(): Promise<DetectionRule[]> {
+  const { data } = await client.get<DetectionRule[]>('/detections/rules')
   return data
 }
 

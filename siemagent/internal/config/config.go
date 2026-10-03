@@ -37,6 +37,8 @@ type Config struct {
 	PostgresDSN   string   // empty keeps events in memory only
 	SyslogUDPAddr string   // e.g. ":5514"; empty disables the UDP listener
 	SyslogTCPAddr string   // e.g. ":5514"; empty disables the TCP listener
+	DetectionMode string   // rules-first (default) | enrich | off
+	SigmaRulesDir string   // extra Sigma rules, e.g. a SigmaHQ checkout
 }
 
 func Load() Config {
@@ -52,6 +54,8 @@ func Load() Config {
 		PostgresDSN:   os.Getenv("POSTGRES_DSN"),
 		SyslogUDPAddr: os.Getenv("SYSLOG_UDP_ADDR"),
 		SyslogTCPAddr: os.Getenv("SYSLOG_TCP_ADDR"),
+		DetectionMode: strings.ToLower(strings.TrimSpace(os.Getenv("DETECTION_MODE"))),
+		SigmaRulesDir: os.Getenv("SIGMA_RULES_DIR"),
 	}
 
 	cfg.Provider = strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))

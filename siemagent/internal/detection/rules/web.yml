@@ -1,0 +1,98 @@
+title: Path Traversal in Web Request
+id: 932c2007-5da2-4168-a362-01dee8408f40
+status: stable
+description: A web request tried to escape the web root to read system files.
+author: siemagent contributors
+tags:
+  - attack.initial_access
+  - attack.t1190
+logsource:
+  category: webserver
+detection:
+  selection_traversal:
+    message|contains:
+      - '../'
+      - '..%2f'
+      - '%2e%2e/'
+      - '..\'
+  selection_target:
+    message|contains:
+      - '/etc/passwd'
+      - '/etc/shadow'
+      - 'etc%2fpasswd'
+      - 'etc%2fshadow'
+      - 'win.ini'
+      - 'boot.ini'
+      - '/proc/self/environ'
+  selection_direct:
+    message|re|i: '(get|post)\s+/etc/(passwd|shadow)'
+  condition: (selection_traversal and selection_target) or selection_direct
+falsepositives:
+  - Vulnerability scanners run by your own team
+level: high
+remediation: Check the response code and size to see whether the file was served; patch or block the vulnerable path.
+samples:
+  match:
+    - '<34>1 2026-10-03T10:31:00Z web01 nginx 5678 - GET /../../etc/passwd HTTP/1.1 200 0'
+    - '10.0.0.5 - - [03/Oct/2026:10:31:00 +0000] "GET /download?file=..%2f..%2fetc%2fpasswd HTTP/1.1" 200'
+    - '<34>1 2026-10-03T10:31:00Z web01 nginx 5678 - GET /etc/passwd HTTP/1.1 404 0'
+  no_match:
+    - '<34>1 2026-10-03T10:31:00Z web01 nginx 5678 - GET /static/app.js HTTP/1.1 200 1234'
+---
+title: Web Attack Tool User Agent
+id: 4089edf7-a7c4-4a93-bdad-de0779b253a0
+status: stable
+description: A request came from a known attack or exploitation tool.
+author: siemagent contributors
+tags:
+  - attack.initial_access
+  - attack.t1190
+logsource:
+  category: webserver
+detection:
+  keywords:
+    - 'sqlmap/'
+    - 'Havij'
+    - 'commix/'
+    - 'XSStrike'
+    - 'WPScan'
+  condition: keywords
+falsepositives:
+  - Authorised penetration tests
+level: high
+remediation: Block the source, review what the tool reached (responses with 200/500), and check the targeted endpoints for injection flaws.
+samples:
+  match:
+    - '<34>1 2026-10-03T10:35:00Z web02 apache2 2345 - POST /login.php HTTP/1.1 200 - "sqlmap/1.6#stable (https://sqlmap.org)"'
+  no_match:
+    - '<34>1 2026-10-03T10:35:00Z web02 apache2 2345 - POST /login.php HTTP/1.1 200 - "Mozilla/5.0"'
+---
+title: Vulnerability Scanner User Agent
+id: d024739c-31e8-40d5-9fa4-c283969032e9
+status: stable
+description: A request came from a vulnerability or port scanner, usually reconnaissance before an attack.
+author: siemagent contributors
+tags:
+  - attack.reconnaissance
+  - attack.t1595
+logsource:
+  category: webserver
+detection:
+  keywords:
+    - 'Nikto'
+    - 'Nmap Scripting Engine'
+    - 'masscan'
+    - 'zgrab'
+    - 'Nuclei'
+    - 'dirbuster'
+    - 'gobuster'
+  condition: keywords
+falsepositives:
+  - Your own scheduled scanning
+level: medium
+remediation: Confirm whether the scan is authorised; if not, block the source and review exposed services.
+samples:
+  match:
+    - '203.0.113.9 - - [03/Oct/2026:10:00:00 +0000] "GET / HTTP/1.1" 404 - "Mozilla/5.00 (Nikto/2.5.0)"'
+  no_match:
+    - '203.0.113.9 - - [03/Oct/2026:10:00:00 +0000] "GET / HTTP/1.1" 200 - "curl/8.4.0"'

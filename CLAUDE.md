@@ -204,3 +204,5 @@ make seed                # POST 10 sample events to /classify
 | 2026-10 | Trunk-based flow: `<type>/<name>` branches, PR title = branch name, protected `master` | See docs/BRANCHING.md; enforced by the PR checks workflow and git hooks |
 | 2026-10 | Releases from semver tags: binaries + GHCR images with provenance/SBOM | Reproducible, verifiable artifacts; CI reused as the release gate |
 | 2026-10 | Go toolchain pinned to the latest 1.25 patch | `go 1.25.0` alone builds with an unpatched standard library |
+| 2026-10 | Sigma engine in-house (`internal/detection`), rules-first by default | Rule matches skip the LLM; LLM outage falls back to rule verdicts; no heavy Sigma dependency |
+| 2026-10 | Built-in rules carry `samples` replayed by tests | Detection-as-code: every rule change is tested against real parser output |

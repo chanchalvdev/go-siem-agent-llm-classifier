@@ -14,6 +14,7 @@ import { AnalyticsPanel } from '../components/AnalyticsPanel'
 import { MITREHeatmap } from '../components/MITREHeatmap'
 import { Docs } from './Docs'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { DetectionList } from '../components/DetectionList'
 
 const ALL_SEVERITIES: Severity[] = ['P1', 'P2', 'P3', 'P4', 'P5']
 const EVENTS_KEY = 'classified-events'
@@ -425,6 +426,16 @@ function DetailPanel({ event, onClose }: { event: ClassifiedEvent; onClose: () =
           />
         </div>
       </div>
+
+      {/* Detection rules */}
+      {event.detections && event.detections.length > 0 && (
+        <div>
+          <p className="text-[10px] text-fg-subtle uppercase tracking-widest mb-2">
+            Detection rules{event.classified_by === 'rules' ? ' · classified without AI' : ''}
+          </p>
+          <DetectionList detections={event.detections} />
+        </div>
+      )}
 
       {/* MITRE */}
       {event.mitre && event.mitre.tactic !== 'N/A' && (
