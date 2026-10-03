@@ -18,6 +18,7 @@ import (
 	"github.com/chverma/siemagent/internal/agent"
 	"github.com/chverma/siemagent/internal/agent/tools"
 	"github.com/chverma/siemagent/internal/api"
+	"github.com/chverma/siemagent/internal/auth"
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/config"
 	"github.com/chverma/siemagent/internal/detection"
@@ -184,16 +185,19 @@ func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
+		authStore, err := auth.NewPostgres(ctx, pg.Pool())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
 		incidents := newIncidentService(cfg, incStore)
-		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, actStore, incidents)))
+		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, actStore, incidents)),
+			api.WithUsers(newAuthService(ctx, cfg, authStore)))
 	} else {
 		slog.Warn("POSTGRES_DSN not set: events are kept in memory and lost on restart", "component", "main")
 		incidents := newIncidentService(cfg, incident.NewMemory())
-		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, response.NewMemory(), incidents)))
-	}
-
-	if !cfg.AuthEnabled() {
-		slog.Warn("SIEM_API_KEYS not set: the API is open to anyone who can reach it", "component", "main")
+		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, response.NewMemory(), incidents)),
+			api.WithUsers(newAuthService(ctx, cfg, auth.NewMemory())))
 	}
 
 	// Live incident stream: tool registry + WebSocket hub.
@@ -251,6 +255,34 @@ func newIncidentService(cfg config.Config, st incident.Store) *incident.Service 
 	window, minSev, _ := cfg.Incidents() // checked by cfg.Validate at start
 	slog.Info("incident correlation enabled", "component", "main", "window", window, "min_severity", minSev)
 	return incident.NewService(st, incident.Config{Window: window, MinSeverity: models.Severity(minSev)})
+}
+
+// newAuthService opens the account store and creates the bootstrap admin.
+func newAuthService(ctx context.Context, cfg config.Config, st auth.Store) *auth.Service {
+	ttl, _ := cfg.SessionTTL() // checked by cfg.Validate at start
+	svc, err := auth.NewService(ctx, st, ttl)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	created, err := svc.Bootstrap(ctx, cfg.AdminUser, cfg.AdminPassword)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: bootstrap admin: %v\n", err)
+		os.Exit(1)
+	}
+	if created {
+		slog.Info("bootstrap admin created; remove SIEM_ADMIN_PASSWORD from the environment",
+			"component", "main", "user", cfg.AdminUser)
+	}
+	switch {
+	case svc.UsersEnabled():
+		slog.Info("user accounts enabled: dashboard login required", "component", "main", "api_keys", len(cfg.APIKeys))
+	case cfg.AuthEnabled():
+		slog.Info("API key authentication only; set SIEM_ADMIN_USER/SIEM_ADMIN_PASSWORD for dashboard logins", "component", "main")
+	default:
+		slog.Warn("no API keys or user accounts: the API is open to anyone who can reach it", "component", "main")
+	}
+	return svc
 }
 
 // newResponseEngine loads built-in and PLAYBOOKS_DIR playbooks.

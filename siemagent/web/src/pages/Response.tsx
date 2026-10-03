@@ -5,6 +5,7 @@ import type { Playbook } from '../lib/api'
 import { ACTION_LABELS, MODE_LABELS } from '../lib/response'
 import { ActionCard } from '../components/ActionCard'
 import { useActionDecisions } from '../hooks/useActionDecisions'
+import { useAuth } from '../auth/auth'
 
 function triggerSummary(p: Playbook): string {
   const t = p.trigger
@@ -27,6 +28,7 @@ export function Response() {
   const recent = useQuery({ queryKey: ['actions', 'recent'], queryFn: () => listActions({ limit: 50 }), refetchInterval: 15_000 })
   const playbooks = useQuery({ queryKey: ['playbooks'], queryFn: listPlaybooks })
   const decisions = useActionDecisions()
+  const writable = useAuth().can('write')
   const history = (recent.data ?? []).filter((a) => a.status !== 'pending')
 
   return (
@@ -61,7 +63,14 @@ export function Response() {
           ) : (
             <ul className="space-y-2" aria-label="Actions awaiting approval">
               {pending.data!.map((a) => (
-                <ActionCard key={a.id} action={a} showIncident busy={decisions.busy} onApprove={decisions.approve} onReject={decisions.reject} />
+                <ActionCard
+                  key={a.id}
+                  action={a}
+                  showIncident
+                  busy={decisions.busy}
+                  onApprove={writable ? decisions.approve : undefined}
+                  onReject={writable ? decisions.reject : undefined}
+                />
               ))}
             </ul>
           )}

@@ -3,11 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiError, listActions, listPlaybooks, runPlaybook } from '../lib/api'
 import { ActionCard } from './ActionCard'
 import { useActionDecisions } from '../hooks/useActionDecisions'
+import { useAuth } from '../auth/auth'
 
 // IncidentResponse lists an incident's response actions and lets an analyst
 // run any playbook against it.
 export function IncidentResponse({ incidentId }: { incidentId: string }) {
   const qc = useQueryClient()
+  const writable = useAuth().can('write')
   const actions = useQuery({
     queryKey: ['actions', 'incident', incidentId],
     queryFn: () => listActions({ incident: incidentId }),
@@ -28,7 +30,7 @@ export function IncidentResponse({ incidentId }: { incidentId: string }) {
   return (
     <section aria-labelledby="response-title">
       <h3 id="response-title" className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">Response</h3>
-      <form
+      {writable && <form
         className="mb-3 flex flex-wrap gap-2"
         onSubmit={(e) => { e.preventDefault(); if (playbook) run.mutate(playbook) }}
       >
@@ -49,7 +51,7 @@ export function IncidentResponse({ incidentId }: { incidentId: string }) {
         >
           Run playbook
         </button>
-      </form>
+      </form>}
       {run.isSuccess && run.data.length === 0 && (
         <p role="status" className="mb-2 text-xs text-fg-muted">
           Nothing new to propose: the actions already exist or no entity fits them.
@@ -65,7 +67,13 @@ export function IncidentResponse({ incidentId }: { incidentId: string }) {
       ) : (
         <ul className="space-y-2" aria-label="Response actions">
           {actions.data!.map((a) => (
-            <ActionCard key={a.id} action={a} busy={decisions.busy} onApprove={decisions.approve} onReject={decisions.reject} />
+            <ActionCard
+              key={a.id}
+              action={a}
+              busy={decisions.busy}
+              onApprove={writable ? decisions.approve : undefined}
+              onReject={writable ? decisions.reject : undefined}
+            />
           ))}
         </ul>
       )}

@@ -22,10 +22,18 @@ Only the latest `master` receives security fixes until versioned releases begin.
 
 ## Deploying safely
 
-- Set `SIEM_API_KEYS`. Without it the API, WebSocket and metrics are open to
-  anyone who can reach the server.
-- `VITE_SIEM_API_KEY` is compiled into the dashboard bundle. Treat it as visible
-  to every dashboard user, and put a shared deployment behind SSO or a VPN.
+- Create user accounts (`SIEM_ADMIN_USER` / `SIEM_ADMIN_PASSWORD`, then the
+  Users page) and/or set `SIEM_API_KEYS`. With neither, the API, WebSocket
+  and metrics are open to anyone who can reach the server.
+- Serve the dashboard over HTTPS and set `SIEM_COOKIE_SECURE=true` so the
+  session cookie is never sent in clear text.
+- Prefer user logins over `VITE_SIEM_API_KEY` for people: that key is compiled
+  into the dashboard bundle, is visible to every dashboard user and acts as an
+  admin. Keep API keys for scripts and integrations.
+- Give people the least role they need (viewer, analyst, admin) and review
+  the audit log.
+- `RESPONSE_WEBHOOK_URL` and `SLACK_WEBHOOK_URL` carry secrets; keep them in
+  `.env` only.
 - Keep Qdrant, Ollama and Postgres on a private network; they have no auth in
   the default `docker-compose.yml`.
 - Logs sent to a hosted LLM (Gemini, OpenAI-compatible) leave your network.

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Shield, ShieldCheck, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown, BookOpen, Siren, Workflow } from 'lucide-react'
+import { Shield, ShieldCheck, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown, BookOpen, Siren, Workflow, Users as UsersIcon, ScrollText, LogOut } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { classifyLog, listEvents } from '../lib/api'
 import type { ClassifiedEvent } from '../lib/api'
@@ -17,6 +17,9 @@ import { Docs } from './Docs'
 import { Rules } from './Rules'
 import { Incidents } from './Incidents'
 import { Response } from './Response'
+import { Users } from './Users'
+import { Audit } from './Audit'
+import { useAuth } from '../auth/auth'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { DetectionList } from '../components/DetectionList'
 
@@ -45,14 +48,16 @@ function useEventStore() {
   return { events, addEvent, addEvents, clear }
 }
 
-type Tab = 'events' | 'incidents' | 'response' | 'analytics' | 'rules' | 'docs'
+type Tab = 'events' | 'incidents' | 'response' | 'analytics' | 'rules' | 'users' | 'audit' | 'docs'
 
-const NAV: { tab: Tab; label: string; Icon: LucideIcon }[] = [
+const NAV: { tab: Tab; label: string; Icon: LucideIcon; admin?: boolean }[] = [
   { tab: 'events', label: 'Events', Icon: AlertTriangle },
   { tab: 'incidents', label: 'Incidents', Icon: Siren },
   { tab: 'response', label: 'Response', Icon: Workflow },
   { tab: 'analytics', label: 'Analytics', Icon: BarChart2 },
   { tab: 'rules', label: 'Rules', Icon: ShieldCheck },
+  { tab: 'users', label: 'Users', Icon: UsersIcon, admin: true },
+  { tab: 'audit', label: 'Audit', Icon: ScrollText, admin: true },
   { tab: 'docs', label: 'Docs', Icon: BookOpen },
 ]
 
@@ -61,6 +66,8 @@ const PAGE_TABS: Partial<Record<Tab, () => React.ReactElement>> = {
   incidents: Incidents,
   response: Response,
   rules: Rules,
+  users: Users,
+  audit: Audit,
   docs: Docs,
 }
 
@@ -76,6 +83,8 @@ export function Dashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('events')
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const { me, can, signOut } = useAuth()
+  const nav = NAV.filter((n) => !n.admin || can('admin'))
   const Page = PAGE_TABS[activeTab]
   const filtered = events.filter((e) => severityFilter.has(e.severity as Severity))
 
@@ -153,7 +162,7 @@ export function Dashboard() {
 
         {/* Nav */}
         <nav className="px-3 py-4 space-y-1">
-          {NAV.map(({ tab, label, Icon }) => (
+          {nav.map(({ tab, label, Icon }) => (
             <button
               key={tab}
               onClick={() => { setActiveTab(tab); setSidebarOpen(false) }}
@@ -174,6 +183,27 @@ export function Dashboard() {
             </button>
           ))}
         </nav>
+
+        {/* Signed-in user */}
+        <div className="mx-3 mb-3 rounded-lg border border-line px-3 py-2 text-xs">
+          {me.auth === 'open' ? (
+            <p className="text-warning" title="Set SIEM_ADMIN_USER and SIEM_ADMIN_PASSWORD to require logins">
+              Open access: no login configured
+            </p>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-fg">{me.username}</p>
+                <p className="text-fg-subtle">{me.role}{me.auth === 'api_key' ? ' · API key' : ''}</p>
+              </div>
+              {me.auth === 'session' && (
+                <button onClick={signOut} aria-label="Sign out" title="Sign out" className="rounded-md p-1.5 text-fg-subtle hover:bg-fg/4 hover:text-fg">
+                  <LogOut size={14} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Theme (header has it on md+; small screens reach it here) */}
         <div className="px-4 pb-3 md:hidden">
@@ -229,8 +259,11 @@ export function Dashboard() {
             </button>
 
             <div className="flex-1 flex items-center gap-2 min-w-0">
-              <DropZone onResults={addEvents} />
-              <form onSubmit={handleClassify} className="flex-1 flex gap-2 min-w-0">
+              {!can('write') && (
+                <p className="flex-1 text-xs text-fg-subtle">Read-only access: viewers can't classify or upload logs.</p>
+              )}
+              {can('write') && <DropZone onResults={addEvents} />}
+              {can('write') && <form onSubmit={handleClassify} className="flex-1 flex gap-2 min-w-0">
                 <input
                   ref={inputRef}
                   value={logInput}
@@ -256,7 +289,7 @@ export function Dashboard() {
                     </>
                   )}
                 </button>
-              </form>
+              </form>}
             </div>
 
             <div className="shrink-0 hidden md:block">
@@ -274,7 +307,7 @@ export function Dashboard() {
 
         {/* ── Mobile tab bar ── */}
         <div className="lg:hidden flex border-b border-line bg-surface/60 shrink-0">
-          {NAV.map(({ tab }) => (
+          {nav.map(({ tab }) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}

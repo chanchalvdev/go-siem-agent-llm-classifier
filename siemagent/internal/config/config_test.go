@@ -15,6 +15,7 @@ func clearLLMEnv(t *testing.T) {
 		"OLLAMA_URL", "OLLAMA_MODEL", "SIEM_API_KEYS", "POSTGRES_DSN",
 		"SYSLOG_UDP_ADDR", "SYSLOG_TCP_ADDR", "DETECTION_MODE", "SIGMA_RULES_DIR",
 		"INCIDENT_WINDOW", "INCIDENT_MIN_SEVERITY", "PLAYBOOKS_DIR", "RESPONSE_WEBHOOK_URL", "SLACK_WEBHOOK_URL",
+		"SIEM_ADMIN_USER", "SIEM_ADMIN_PASSWORD", "SIEM_SESSION_TTL", "SIEM_COOKIE_SECURE",
 	} {
 		t.Setenv(k, "")
 	}
@@ -191,5 +192,30 @@ func TestResponseSettings(t *testing.T) {
 	err := Load().Validate()
 	if err == nil || !strings.Contains(err.Error(), "SLACK_WEBHOOK_URL") || strings.Contains(err.Error(), "SECRET") {
 		t.Fatalf("want a URL error without the secret, got %v", err)
+	}
+}
+
+func TestAccountSettings(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("GEMINI_API_KEY", "k")
+	if ttl, err := Load().SessionTTL(); err != nil || ttl != 12*time.Hour {
+		t.Fatalf("default ttl: %v %v", ttl, err)
+	}
+	t.Setenv("SIEM_SESSION_TTL", "8h")
+	t.Setenv("SIEM_COOKIE_SECURE", "true")
+	t.Setenv("SIEM_ADMIN_USER", "admin")
+	t.Setenv("SIEM_ADMIN_PASSWORD", "a-long-password")
+	cfg := Load()
+	if ttl, _ := cfg.SessionTTL(); ttl != 8*time.Hour || !cfg.CookieSecure || cfg.Validate() != nil {
+		t.Fatalf("settings: %+v %v", cfg, cfg.Validate())
+	}
+	t.Setenv("SIEM_ADMIN_PASSWORD", "")
+	if err := Load().Validate(); err == nil || !strings.Contains(err.Error(), "SIEM_ADMIN_PASSWORD") {
+		t.Fatalf("half-set bootstrap: %v", err)
+	}
+	t.Setenv("SIEM_ADMIN_USER", "")
+	t.Setenv("SIEM_SESSION_TTL", "1m")
+	if err := Load().Validate(); err == nil || !strings.Contains(err.Error(), "SIEM_SESSION_TTL") {
+		t.Fatalf("short ttl: %v", err)
 	}
 }

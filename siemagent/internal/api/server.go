@@ -19,6 +19,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/chverma/siemagent/internal/agent"
+	"github.com/chverma/siemagent/internal/auth"
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/config"
 	"github.com/chverma/siemagent/internal/detection"
@@ -62,6 +63,7 @@ type Server struct {
 	detections *detection.Engine // nil when detection rules are off
 	incidents  *incident.Service // nil when correlation is off
 	response   *response.Engine  // nil when playbooks are off
+	users      *auth.Service     // nil when user accounts are off
 }
 
 // maxConcurrentInvestigations caps agent runs in flight. Bulk ingest and
@@ -141,7 +143,7 @@ func (s *Server) buildRouter() *chi.Mux {
 	r.Use(middleware.RequestID)
 	r.Use(slogRequestLogger)
 	r.Use(middleware.Recoverer)
-	r.Use(newRateLimiter(100).middleware)
+	r.Use(newRateLimiter(100, 100).middleware)
 	r.Use(securityHeaders)
 	r.Use(corsMiddleware(s.cfg))
 
@@ -151,44 +153,67 @@ func (s *Server) buildRouter() *chi.Mux {
 	r.Get("/docs", s.handleDocsUI)
 	r.Get("/docs/openapi.yaml", s.handleDocsSpec)
 
-	// Everything else requires an API key when SIEM_API_KEYS is set.
+	// Login is public; a tighter rate limit slows password guessing on top
+	// of the per-account lockout.
+	r.With(newRateLimiter(1, 10).middleware).Post("/api/auth/login", s.handleLogin)
+
+	// Everything else needs an API key, a login session, or an install with
+	// no authentication configured at all (development).
 	r.Group(func(r chi.Router) {
-		r.Use(apiKeyAuth(s.cfg.APIKeys))
+		r.Use(s.authenticate)
+		r.Use(s.auditTrail)
 
-		r.Handle("/metrics", promhttp.Handler())
+		r.Get("/api/auth/me", s.handleMe)
+		r.Post("/api/auth/logout", s.handleLogout)
+		r.Post("/api/auth/password", s.handleChangePassword)
 
-		r.Route("/api", func(r chi.Router) {
+		r.Group(func(r chi.Router) {
+			r.Use(requireByMethod)
+
+			r.Handle("/metrics", promhttp.Handler())
+
+			r.Route("/api", func(r chi.Router) {
+				r.Post("/classify", s.handleClassify)
+				r.Post("/classify/stream", s.handleClassifyStream)
+				r.Post("/ingest", s.handleIngest)
+				r.Get("/events", s.handleEvents)
+				r.Get("/detections/rules", s.handleDetectionRules)
+				r.Get("/search", s.handleSearch)
+				r.Get("/analytics/summary", s.handleAnalyticsSummary)
+
+				r.Get("/incidents", s.handleListIncidents)
+				r.Get("/incidents/stats", s.handleIncidentStats)
+				r.Get("/incidents/{id}", s.handleGetIncident)
+				r.Patch("/incidents/{id}", s.handleUpdateIncident)
+				r.Post("/incidents/{id}/comments", s.handleAddComment)
+				r.Post("/incidents/{id}/investigate", s.handleInvestigateIncident)
+				r.Get("/incidents/{id}/report", s.handleIncidentReport)
+				r.Post("/incidents/{id}/feedback", s.handleIncidentFeedback)
+				r.Post("/incidents/{id}/playbooks/{playbook}/run", s.handleRunPlaybook)
+
+				r.Get("/playbooks", s.handleListPlaybooks)
+				r.Get("/response/actions", s.handleListActions)
+				r.Post("/response/actions/{id}/approve", s.handleApproveAction)
+				r.Post("/response/actions/{id}/reject", s.handleRejectAction)
+
+				// Admin: detection tuning, accounts and the audit log.
+				r.Group(func(r chi.Router) {
+					r.Use(require(auth.PermAdmin))
+					r.Patch("/detections/rules/{id}", s.handleUpdateDetectionRule)
+					r.Get("/users", s.handleListUsers)
+					r.Post("/users", s.handleCreateUser)
+					r.Patch("/users/{id}", s.handleUpdateUser)
+					r.Get("/audit", s.handleListAudit)
+				})
+			})
+
+			// Legacy top-level routes for backward compatibility
 			r.Post("/classify", s.handleClassify)
 			r.Post("/classify/stream", s.handleClassifyStream)
-			r.Post("/ingest", s.handleIngest)
-			r.Get("/events", s.handleEvents)
-			r.Get("/detections/rules", s.handleDetectionRules)
-			r.Patch("/detections/rules/{id}", s.handleUpdateDetectionRule)
-			r.Get("/search", s.handleSearch)
-			r.Get("/analytics/summary", s.handleAnalyticsSummary)
 
-			r.Get("/incidents", s.handleListIncidents)
-			r.Get("/incidents/stats", s.handleIncidentStats)
-			r.Get("/incidents/{id}", s.handleGetIncident)
-			r.Patch("/incidents/{id}", s.handleUpdateIncident)
-			r.Post("/incidents/{id}/comments", s.handleAddComment)
-			r.Post("/incidents/{id}/investigate", s.handleInvestigateIncident)
-			r.Get("/incidents/{id}/report", s.handleIncidentReport)
-			r.Post("/incidents/{id}/feedback", s.handleIncidentFeedback)
-			r.Post("/incidents/{id}/playbooks/{playbook}/run", s.handleRunPlaybook)
-
-			r.Get("/playbooks", s.handleListPlaybooks)
-			r.Get("/response/actions", s.handleListActions)
-			r.Post("/response/actions/{id}/approve", s.handleApproveAction)
-			r.Post("/response/actions/{id}/reject", s.handleRejectAction)
+			// Live incident stream (WebSocket)
+			r.Get("/ws/alerts", s.handleAlertStream)
 		})
-
-		// Legacy top-level routes for backward compatibility
-		r.Post("/classify", s.handleClassify)
-		r.Post("/classify/stream", s.handleClassifyStream)
-
-		// Live incident stream (WebSocket)
-		r.Get("/ws/alerts", s.handleAlertStream)
 	})
 
 	return r
@@ -216,12 +241,14 @@ type ipRateLimiter struct {
 	mu       sync.Mutex
 	limiters map[string]*limiterEntry
 	rps      float64
+	burst    int
 }
 
-func newRateLimiter(rps float64) *ipRateLimiter {
+func newRateLimiter(rps float64, burst int) *ipRateLimiter {
 	rl := &ipRateLimiter{
 		limiters: make(map[string]*limiterEntry),
 		rps:      rps,
+		burst:    burst,
 	}
 	go rl.cleanup()
 	return rl
@@ -246,7 +273,7 @@ func (rl *ipRateLimiter) getLimiter(ip string) *rate.Limiter {
 	defer rl.mu.Unlock()
 	entry, ok := rl.limiters[ip]
 	if !ok {
-		entry = &limiterEntry{lim: rate.NewLimiter(rate.Limit(rl.rps), int(rl.rps))}
+		entry = &limiterEntry{lim: rate.NewLimiter(rate.Limit(rl.rps), rl.burst)}
 		rl.limiters[ip] = entry
 	}
 	entry.lastSeen = time.Now()
@@ -311,7 +338,7 @@ func corsMiddleware(cfg config.Config) func(http.Handler) http.Handler {
 			if origin != "" {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-Requested-With")
 			}
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)

@@ -206,3 +206,7 @@ make seed                # POST 10 sample events to /classify
 | 2026-10 | Go toolchain pinned to the latest 1.25 patch | `go 1.25.0` alone builds with an unpatched standard library |
 | 2026-10 | Sigma engine in-house (`internal/detection`), rules-first by default | Rule matches skip the LLM; LLM outage falls back to rule verdicts; no heavy Sigma dependency |
 | 2026-10 | Built-in rules carry `samples` replayed by tests | Detection-as-code: every rule change is tested against real parser output |
+| 2026-10 | Threshold rules use arrival time, capped group state | Log timestamps are forgeable; attacker-chosen group keys must not grow memory unbounded |
+| 2026-10 | Incidents correlate on shared IP/user/host within a window | One story per attack; one AI investigation per incident instead of per alert |
+| 2026-10 | Response actions need approval by default; containment goes through one webhook | Humans approve actions; integrate with existing automation instead of shipping connectors |
+| 2026-10 | Local accounts (bcrypt), hashed session tokens, SameSite=Strict + X-Requested-With | Roles and audit before SSO; CSRF-safe cookies without a token round-trip |

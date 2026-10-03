@@ -43,6 +43,8 @@ tags:
     description: Correlated alerts and case management
   - name: Response
     description: Playbooks and approved response actions
+  - name: Accounts
+    description: Login sessions, users and the audit log
   - name: Analytics
     description: Event analytics
   - name: Observability
@@ -751,6 +753,157 @@ paths:
         "404": {description: Unknown action}
         "409": {description: The action is not pending}
 
+  # ── Accounts ──────────────────────────────────────────────────────────────────
+
+  /api/auth/login:
+    post:
+      tags: [Accounts]
+      summary: Sign in
+      description: Public. Sets an HttpOnly, SameSite=Strict session cookie. Cookie-authenticated writes must send X-Requested-With.
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: {type: string}
+                password: {type: string, format: password}
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Principal"}
+        "401": {description: Invalid username or password}
+        "429": {description: Too many failed logins for this username}
+
+  /api/auth/logout:
+    post:
+      tags: [Accounts]
+      summary: Sign out
+      operationId: logout
+      responses:
+        "204": {description: Signed out}
+
+  /api/auth/me:
+    get:
+      tags: [Accounts]
+      summary: Who am I
+      operationId: getMe
+      responses:
+        "200":
+          description: The caller and their permissions
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Principal"}
+        "401": {description: Not signed in; login_required tells the dashboard to show the login form}
+
+  /api/auth/password:
+    post:
+      tags: [Accounts]
+      summary: Change your own password
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: {type: string, format: password}
+                new_password: {type: string, format: password, minLength: 12, maxLength: 72}
+      responses:
+        "204": {description: Changed}
+        "400": {description: Wrong current password or weak new password}
+
+  /api/users:
+    get:
+      tags: [Accounts]
+      summary: List users (admin)
+      operationId: listUsers
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/User"}
+        "403": {description: Not an admin}
+    post:
+      tags: [Accounts]
+      summary: Add a user (admin)
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, role]
+              properties:
+                username: {type: string}
+                display_name: {type: string}
+                password: {type: string, format: password, minLength: 12, maxLength: 72}
+                role: {type: string, enum: [viewer, analyst, admin]}
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/User"}
+        "400": {description: Invalid or taken username, weak password, unknown role}
+
+  /api/users/{id}:
+    patch:
+      tags: [Accounts]
+      summary: Change a user (admin)
+      description: Disabling or resetting a password ends the user's sessions. The last active admin cannot be demoted or disabled.
+      operationId: updateUser
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name: {type: string}
+                role: {type: string, enum: [viewer, analyst, admin]}
+                disabled: {type: boolean}
+                password: {type: string, format: password}
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/User"}
+        "400": {description: Invalid change}
+        "404": {description: Unknown user}
+
+  /api/audit:
+    get:
+      tags: [Accounts]
+      summary: Audit log (admin)
+      operationId: listAudit
+      parameters:
+        - {name: actor, in: query, schema: {type: string}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 1000, default: 200}}
+      responses:
+        "200":
+          description: Entries, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/AuditEntry"}
+
   # ── Analytics ─────────────────────────────────────────────────────────────────
 
   /api/analytics/summary:
@@ -839,6 +992,42 @@ paths:
 
 components:
   schemas:
+    Principal:
+      type: object
+      properties:
+        username: {type: string}
+        role: {type: string, enum: [viewer, analyst, admin]}
+        auth: {type: string, enum: [session, api_key, open]}
+        id: {type: string}
+        permissions:
+          type: object
+          properties:
+            read: {type: boolean}
+            write: {type: boolean}
+            admin: {type: boolean}
+
+    User:
+      type: object
+      properties:
+        id: {type: string}
+        username: {type: string}
+        display_name: {type: string}
+        role: {type: string, enum: [viewer, analyst, admin]}
+        disabled: {type: boolean}
+        created_at: {type: string, format: date-time}
+        last_login_at: {type: string, format: date-time}
+
+    AuditEntry:
+      type: object
+      properties:
+        id: {type: integer}
+        at: {type: string, format: date-time}
+        actor: {type: string}
+        action: {type: string, example: "PATCH /api/incidents/{id}"}
+        target: {type: string}
+        status: {type: integer}
+        ip: {type: string}
+
     ResponseAction:
       type: object
       properties:

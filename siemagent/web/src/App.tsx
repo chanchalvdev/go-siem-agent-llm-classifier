@@ -5,6 +5,7 @@ import { AlertTicker } from './components/AlertTicker'
 import { Incident } from './pages/Incident'
 import { useAlertStream } from './hooks/useAlertStream'
 import { ThemeProvider } from './theme/ThemeProvider'
+import { AuthGate } from './auth/AuthGate'
 
 const queryClient = new QueryClient()
 
@@ -40,8 +41,10 @@ export default function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <LiveIncidents />
-        <Dashboard />
+        <AuthGate>
+          <LiveIncidents />
+          <Dashboard />
+        </AuthGate>
       </QueryClientProvider>
     </ThemeProvider>
   )
