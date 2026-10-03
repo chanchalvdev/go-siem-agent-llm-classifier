@@ -12,3 +12,10 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS events_processed_at_idx ON events (processed_at DESC);
 CREATE INDEX IF NOT EXISTS events_severity_idx ON events (severity);
+
+-- Analyst overrides of detection rules (enable/disable).
+CREATE TABLE IF NOT EXISTS rule_states (
+    rule_id    TEXT        PRIMARY KEY,
+    enabled    BOOLEAN     NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

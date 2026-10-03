@@ -115,6 +115,7 @@ func New(cfg config.Config, cls classifier.Interface, opts ...ServerOption) *Ser
 	for _, opt := range opts {
 		opt(s)
 	}
+	s.applyRuleStates()
 	s.router = s.buildRouter()
 	s.http = &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -154,6 +155,7 @@ func (s *Server) buildRouter() *chi.Mux {
 			r.Post("/ingest", s.handleIngest)
 			r.Get("/events", s.handleEvents)
 			r.Get("/detections/rules", s.handleDetectionRules)
+			r.Patch("/detections/rules/{id}", s.handleUpdateDetectionRule)
 			r.Get("/search", s.handleSearch)
 			r.Get("/analytics/summary", s.handleAnalyticsSummary)
 		})
@@ -285,7 +287,7 @@ func corsMiddleware(cfg config.Config) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if origin != "" {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
 			}
 			if r.Method == http.MethodOptions {

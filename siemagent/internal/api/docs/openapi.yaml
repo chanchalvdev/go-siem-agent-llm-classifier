@@ -460,6 +460,37 @@ paths:
                 type: array
                 items: {$ref: "#/components/schemas/DetectionRule"}
 
+  /api/detections/rules/{id}:
+    patch:
+      tags: [Detection]
+      summary: Enable or disable a detection rule
+      description: |
+        Takes effect immediately and is saved (in Postgres when configured),
+        so it survives restarts. Disabling a threshold rule clears its counters.
+      operationId: updateDetectionRule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: {type: boolean}
+      responses:
+        "200":
+          description: The updated rule
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/DetectionRule"}
+        "400": {description: "Body is not {\"enabled\": true|false}"}
+        "404": {description: Unknown rule, or detection is off}
+
   # ── Analytics ─────────────────────────────────────────────────────────────────
 
   /api/analytics/summary:
@@ -652,10 +683,13 @@ components:
           type: array
           items: {type: string}
           example: ["attack.impact", "attack.t1490"]
+        count: {type: integer, description: "Threshold rules: events that crossed the threshold"}
+        group: {type: string, example: "src_ip=203.0.113.7", description: "Threshold rules: the shared group-by value"}
+        threshold: {type: string, example: "count() by src_ip >= 10 in 5m"}
 
     DetectionRule:
       type: object
-      required: [id, title, level, source, hits]
+      required: [id, title, level, source, hits, enabled, type]
       properties:
         id: {type: string}
         title: {type: string}
@@ -666,7 +700,10 @@ components:
           type: array
           items: {type: string}
         source: {type: string, description: '"builtin" or the rule file path'}
-        hits: {type: integer, format: int64, description: Matches since server start}
+        hits: {type: integer, format: int64, description: "Times fired since server start (threshold crossings for threshold rules)"}
+        enabled: {type: boolean}
+        type: {type: string, enum: [single, threshold]}
+        threshold: {type: string, example: "count() by src_ip >= 10 in 5m"}
 
     ClassifyRequest:
       type: object

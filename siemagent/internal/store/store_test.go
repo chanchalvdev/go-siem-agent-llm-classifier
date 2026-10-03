@@ -112,3 +112,32 @@ func TestEventStoreRingBufferWraps(t *testing.T) {
 		t.Fatalf("newest event wrong: %v", got[0].ProcessedAt)
 	}
 }
+
+// testRuleStatesContract checks RuleStates behaviour shared by both stores.
+func testRuleStatesContract(t *testing.T, s RuleStates) {
+	t.Helper()
+	ctx := context.Background()
+	if err := s.SetRuleEnabled(ctx, "rule-a", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetRuleEnabled(ctx, "rule-b", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetRuleEnabled(ctx, "rule-b", true); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.RuleStates(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enabled, ok := got["rule-a"]; !ok || enabled {
+		t.Errorf("rule-a should be stored disabled: %v", got)
+	}
+	if !got["rule-b"] {
+		t.Errorf("rule-b should be re-enabled: %v", got)
+	}
+}
+
+func TestMemoryRuleStates(t *testing.T) {
+	testRuleStatesContract(t, New())
+}
