@@ -29,6 +29,14 @@ var (
 		},
 	)
 
+	AuthLoginsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "auth_logins_total",
+			Help: "Dashboard login attempts, by result (success, failed, locked).",
+		},
+		[]string{"result"},
+	)
+
 	ResponseActionsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "response_actions_total",
