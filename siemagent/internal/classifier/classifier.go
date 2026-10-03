@@ -157,6 +157,14 @@ func (c *Classifier) ClassifyStream(ctx context.Context, ev models.LogEvent, onC
 	return result, nil
 }
 
+// Index stores an event produced elsewhere (e.g. by detection rules) for
+// semantic search, asynchronously. No-op when indexing is not configured.
+func (c *Classifier) Index(ev models.ClassifiedEvent) {
+	if c.embedder != nil && c.indexer != nil {
+		go c.indexEvent(ev)
+	}
+}
+
 func (c *Classifier) indexEvent(ev models.ClassifiedEvent) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -254,11 +262,12 @@ func buildClassifiedEvent(ev models.LogEvent, a models.LLMAnalysis) models.Class
 			TechniqueID: a.TechniqueID,
 			Technique:   a.Technique,
 		},
-		Severity:    models.Severity(a.Severity),
-		Confidence:  a.Confidence,
-		IOCs:        a.IOCs,
-		Remediation: a.Remediation,
-		Summary:     a.Summary,
-		ProcessedAt: time.Now().UTC(),
+		Severity:     models.Severity(a.Severity),
+		ClassifiedBy: models.ClassifiedByLLM,
+		Confidence:   a.Confidence,
+		IOCs:         a.IOCs,
+		Remediation:  a.Remediation,
+		Summary:      a.Summary,
+		ProcessedAt:  time.Now().UTC(),
 	}
 }

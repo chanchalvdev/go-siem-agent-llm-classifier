@@ -11,7 +11,7 @@ func clearLLMEnv(t *testing.T) {
 		"LLM_PROVIDER", "GEMINI_API_KEY", "GEMINI_BASE_URL", "GEMINI_MODEL",
 		"KIMCHI_API_KEY", "KIMCHI_BASE_URL", "OPENAI_API_KEY", "SIEM_MODEL",
 		"OLLAMA_URL", "OLLAMA_MODEL", "SIEM_API_KEYS", "POSTGRES_DSN",
-		"SYSLOG_UDP_ADDR", "SYSLOG_TCP_ADDR",
+		"SYSLOG_UDP_ADDR", "SYSLOG_TCP_ADDR", "DETECTION_MODE", "SIGMA_RULES_DIR",
 	} {
 		t.Setenv(k, "")
 	}
@@ -132,10 +132,15 @@ func TestLoadPlatformSettings(t *testing.T) {
 	t.Setenv("SIEM_API_KEYS", " key-a , ,key-b ")
 	t.Setenv("POSTGRES_DSN", "postgres://x")
 	t.Setenv("SYSLOG_UDP_ADDR", ":5514")
+	t.Setenv("DETECTION_MODE", " Enrich ")
+	t.Setenv("SIGMA_RULES_DIR", "/rules")
 
 	cfg := Load()
 	if !slices.Equal(cfg.APIKeys, []string{"key-a", "key-b"}) || !cfg.AuthEnabled() {
 		t.Fatalf("unexpected API keys: %q", cfg.APIKeys)
+	}
+	if cfg.DetectionMode != "enrich" || cfg.SigmaRulesDir != "/rules" {
+		t.Fatalf("unexpected detection settings: %+v", cfg)
 	}
 	if cfg.PostgresDSN != "postgres://x" || cfg.SyslogUDPAddr != ":5514" || cfg.SyslogTCPAddr != "" {
 		t.Fatalf("unexpected settings: %+v", cfg)

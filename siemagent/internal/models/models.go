@@ -38,6 +38,26 @@ type ClassifiedEvent struct {
 	Remediation string    `json:"remediation"`
 	Summary     string    `json:"summary"`
 	ProcessedAt time.Time `json:"processed_at"`
+	// Detections lists the detection rules that matched the event.
+	Detections []Detection `json:"detections,omitempty"`
+	// ClassifiedBy records what produced the verdict: ClassifiedByRules,
+	// ClassifiedByLLM, or ClassifiedByBoth. Empty on events stored before
+	// detection rules existed.
+	ClassifiedBy string `json:"classified_by,omitempty"`
+}
+
+const (
+	ClassifiedByRules = "rules"
+	ClassifiedByLLM   = "llm"
+	ClassifiedByBoth  = "llm+rules"
+)
+
+// Detection is one rule match on an event.
+type Detection struct {
+	RuleID string   `json:"rule_id"`
+	Title  string   `json:"title"`
+	Level  string   `json:"level"` // informational | low | medium | high | critical
+	Tags   []string `json:"tags,omitempty"`
 }
 
 // ClassifyRequest is the HTTP request body for POST /classify.

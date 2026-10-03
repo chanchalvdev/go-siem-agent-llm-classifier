@@ -20,6 +20,7 @@ import (
 	"github.com/chverma/siemagent/internal/api"
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/config"
+	"github.com/chverma/siemagent/internal/detection"
 	"github.com/chverma/siemagent/internal/ingest"
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
@@ -53,9 +54,10 @@ func main() {
 
 	slog.Info("LLM provider configured", "component", "main", "provider", cfg.Provider, "model", cfg.ModelName)
 	cls := classifier.New(cfg.APIKey, cfg.BaseURL, cfg.ModelName)
+	detCls, engine := buildDetection(cfg, cls)
 
 	if *serve {
-		runServer(cfg, cls)
+		runServer(cfg, cls, detCls, engine)
 		return
 	}
 
@@ -77,7 +79,7 @@ func main() {
 		out = f
 	}
 
-	runCLI(args, cfg, cls, out)
+	runCLI(args, cfg, detCls, out)
 
 	// A failed close on a written file can mean lost results, so report it.
 	if out != os.Stdout {
@@ -88,7 +90,43 @@ func main() {
 	}
 }
 
-func runServer(cfg config.Config, cls *classifier.Classifier) {
+// buildDetection loads detection rules and wraps the LLM classifier with them.
+// It returns the classifier every ingestion path should use, and the engine
+// (nil when DETECTION_MODE=off).
+func buildDetection(cfg config.Config, cls *classifier.Classifier) (classifier.Interface, *detection.Engine) {
+	mode, err := detection.ParseMode(cfg.DetectionMode)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	if mode == detection.ModeOff {
+		slog.Info("detection rules disabled", "component", "main")
+		return cls, nil
+	}
+
+	rules, errs := detection.LoadBuiltin()
+	if cfg.SigmaRulesDir != "" {
+		more, moreErrs := detection.LoadDir(cfg.SigmaRulesDir)
+		rules = append(rules, more...)
+		errs = append(errs, moreErrs...)
+	}
+	engine, dupErrs := detection.NewEngine(rules)
+	errs = append(errs, dupErrs...)
+
+	unsupported := 0
+	for _, e := range errs {
+		if errors.Is(e, detection.ErrUnsupported) {
+			unsupported++ // expected for SigmaHQ aggregation/correlation rules
+			continue
+		}
+		slog.Warn("detection rule skipped", "component", "main", "error", e)
+	}
+	slog.Info("detection rules loaded", "component", "main", "mode", mode,
+		"rules", len(engine.Rules()), "skipped_unsupported", unsupported)
+	return detection.NewClassifier(cls, engine, mode, cls.Index), engine
+}
+
+func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.Interface, engine *detection.Engine) {
 	// ctx is cancelled on SIGINT/SIGTERM and drives every shutdown below.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -136,7 +174,11 @@ func runServer(cfg config.Config, cls *classifier.Classifier) {
 	// Live incident stream: tool registry + WebSocket hub.
 	opts = append(opts, api.WithAgent(buildHub(), cls.OpenAIClient(), cfg.ModelName, reg))
 
-	srv := api.New(cfg, cls, opts...)
+	if engine != nil {
+		opts = append(opts, api.WithDetections(engine))
+	}
+
+	srv := api.New(cfg, detCls, opts...)
 
 	// Network log ingestion (syslog over UDP/TCP).
 	var live *api.LiveIngest
