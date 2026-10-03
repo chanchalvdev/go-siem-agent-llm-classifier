@@ -125,6 +125,12 @@ Turn a rule off and on again; it stays that way after a restart.
   the action shows **Succeeded**. **Reject** the isolation with a reason.
 - Both decisions also appear in the incident timeline.
 
+**Suppressions**: in the `SSH Brute Force` incident click **Snooze**, pick
+`ip:185.220.101.77`, 24 hours, reason *testing*. The timeline notes it. Upload
+the scenario again: the brute-force lines appear in **Events** with a
+*Suppressed* badge, and the incident's alert count stays the same. The
+**Suppressions** page shows the hits; **Lift** it and the IP alerts again.
+
 **Users** (admin): add `viewer1` as **viewer** and `analyst1` as **analyst**.
 Sign out, sign in as `viewer1`: incidents are read-only, no Upload, Classify,
 Approve or Users/Audit. Back as admin, disable `viewer1`: their session ends

@@ -38,7 +38,7 @@ project's LLM agent stands out, so the platform is built around it.
 | 3 | Investigation agent: threat-intel tools, live incident stream | ✅ Done |
 | 4 | Platform foundations | ✅ Done |
 | 5 | Detection engine | 🚧 In progress |
-| 6 | Incidents and case management | 🚧 Core done (attachments, suppression open) |
+| 6 | Incidents and case management | 🚧 Core done (attachments open) |
 | 7 | AI investigation 2.0 | 🚧 In progress |
 | 8 | Response and automation | 🚧 Core done (native connectors open) |
 | 9 | Multi-user, RBAC and multi-tenancy | 🚧 Accounts, roles, audit done (SSO, tenancy open) |
@@ -95,7 +95,7 @@ Analysts work incidents, not log lines. See [docs/INCIDENTS.md](docs/INCIDENTS.m
 - [ ] **Evidence attachments** — files and screenshots on a case
 - [x] **Deduplication** — repeats join the open incident instead of opening
       new ones; one AI investigation per incident
-- [ ] **Suppression** — snooze noisy sources, alert fatigue metrics
+- [x] **Suppression** — snooze noisy entities, rules or attack types, with hit counts and `events_suppressed_total`
 - [x] **Entity view** — every incident involving a host, user or IP
 - [x] **Incident timeline** — alerts, comments, AI findings and changes in order
 

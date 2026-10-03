@@ -29,6 +29,13 @@ var (
 		},
 	)
 
+	EventsSuppressedTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "events_suppressed_total",
+			Help: "Events matched by a suppression: stored, but kept out of incidents, playbooks and investigations.",
+		},
+	)
+
 	RetentionDeletedTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "retention_deleted_total",

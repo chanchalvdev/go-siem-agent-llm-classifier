@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertTriangle, Bot, CheckCircle2, FileText, MessageSquare, PlusCircle, Sparkles, ThumbsDown, ThumbsUp,
+  AlertTriangle, BellOff, Bot, CheckCircle2, FileText, MessageSquare, PlusCircle, Sparkles, ThumbsDown, ThumbsUp,
   TrendingUp, UserRound, Workflow, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -18,6 +18,7 @@ import { KillChain } from './KillChain'
 import { IncidentReport } from './IncidentReport'
 import { IncidentResponse } from './IncidentResponse'
 import { useAuth } from '../auth/auth'
+import { SuppressionForm } from './SuppressionForm'
 
 const RESOLUTION_LABELS: Record<Exclude<IncidentResolution, ''>, string> = {
   true_positive: 'True positive',
@@ -37,6 +38,7 @@ const ACTIVITY_ICONS: Record<string, LucideIcon> = {
   severity: AlertTriangle,
   feedback: ThumbsUp,
   response: Workflow,
+  suppression: BellOff,
 }
 
 type TimelineItem =
@@ -68,6 +70,7 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
   const { data, isLoading, isError } = useQuery({ queryKey: key, queryFn: () => getIncident(id), refetchInterval: 10_000 })
   const [comment, setComment] = useState('')
   const [assigneeDraft, setAssigneeDraft] = useState<string | null>(null)
+  const [snoozing, setSnoozing] = useState(false)
   const [showReport, setShowReport] = useState(false)
 
   const refresh = () => {
@@ -85,6 +88,7 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
 
   if (isLoading) return <p className="p-6 text-sm text-fg-subtle">Loading incident…</p>
   if (isError || !data) return <p className="p-6 text-sm text-danger">Could not load the incident.</p>
+  const snoozable = data.entities.filter((e) => e.kind !== 'signature').map(entityLabel)
 
   const assignee = assigneeDraft ?? data.assignee ?? ''
   const saveAssignee = () => {
@@ -211,7 +215,24 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
               )}
             </li>
           ))}
+          {writable && snoozable.length > 0 && (
+            <li>
+              <button
+                type="button"
+                onClick={() => setSnoozing((v) => !v)}
+                aria-expanded={snoozing}
+                className="inline-flex items-center gap-1 rounded-md border border-dashed border-line-strong px-2 py-1 text-xs text-fg-muted hover:text-fg"
+              >
+                <BellOff size={12} aria-hidden="true" /> Snooze
+              </button>
+            </li>
+          )}
         </ul>
+        {snoozing && (
+          <div className="mt-3">
+            <SuppressionForm entities={snoozable} incidentId={id} onDone={() => setSnoozing(false)} />
+          </div>
+        )}
       </section>
 
       <section aria-labelledby="timeline-title">

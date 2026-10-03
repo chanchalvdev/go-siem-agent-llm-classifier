@@ -44,6 +44,9 @@ type ClassifiedEvent struct {
 	// ClassifiedByLLM, or ClassifiedByBoth. Empty on events stored before
 	// detection rules existed.
 	ClassifiedBy string `json:"classified_by,omitempty"`
+	// SuppressedBy is the ID of the suppression that matched the event. A
+	// suppressed event is stored but opens no incident and runs no playbook.
+	SuppressedBy string `json:"suppressed_by,omitempty"`
 }
 
 const (

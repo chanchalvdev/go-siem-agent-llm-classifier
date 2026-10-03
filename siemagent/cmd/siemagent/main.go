@@ -30,6 +30,7 @@ import (
 	"github.com/chverma/siemagent/internal/response"
 	"github.com/chverma/siemagent/internal/retention"
 	"github.com/chverma/siemagent/internal/store"
+	"github.com/chverma/siemagent/internal/suppression"
 	"github.com/chverma/siemagent/pkg/ollama"
 	pkgqdrant "github.com/chverma/siemagent/pkg/qdrant"
 )
@@ -199,9 +200,15 @@ func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
+		supStore, err := suppression.NewPostgres(ctx, pg.Pool())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
 		incidents := newIncidentService(cfg, incStore)
 		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, actStore, incidents)),
-			api.WithUsers(newAuthService(ctx, cfg, authStore)), api.WithRetention(startRetention(ctx, cfg, pg)))
+			api.WithUsers(newAuthService(ctx, cfg, authStore)), api.WithRetention(startRetention(ctx, cfg, pg)),
+			api.WithSuppressions(newSuppressions(ctx, supStore)))
 	} else {
 		slog.Warn("POSTGRES_DSN not set: events are kept in memory and lost on restart", "component", "main")
 		if r, _ := cfg.Retention(); r != (config.Retention{}) {
@@ -209,7 +216,7 @@ func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.
 		}
 		incidents := newIncidentService(cfg, incident.NewMemory())
 		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, response.NewMemory(), incidents)),
-			api.WithUsers(newAuthService(ctx, cfg, auth.NewMemory())))
+			api.WithUsers(newAuthService(ctx, cfg, auth.NewMemory())), api.WithSuppressions(newSuppressions(ctx, suppression.NewMemory())))
 	}
 
 	// Live incident stream: tool registry + WebSocket hub.
@@ -270,6 +277,20 @@ func newIncidentService(cfg config.Config, st incident.Store) *incident.Service 
 }
 
 // newAuthService opens the account store and creates the bootstrap admin.
+// newSuppressions loads the alert suppressions; failing to read them is fatal
+// because silently dropping every snooze would flood analysts.
+func newSuppressions(ctx context.Context, st suppression.Store) *suppression.Service {
+	svc, err := suppression.NewService(ctx, st)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: load suppressions: %v\n", err)
+		os.Exit(1)
+	}
+	if n := len(svc.List()); n > 0 {
+		slog.Info("alert suppressions loaded", "component", "main", "count", n)
+	}
+	return svc
+}
+
 // startRetention runs the data retention policy in the background until ctx
 // ends. Expired login sessions are purged even when no policy is set.
 func startRetention(ctx context.Context, cfg config.Config, pg *store.Postgres) *retention.Runner {
