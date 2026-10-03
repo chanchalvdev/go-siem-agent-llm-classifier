@@ -29,6 +29,13 @@ var (
 		},
 	)
 
+	DetectionGroupsDroppedTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "detection_aggregation_groups_dropped_total",
+			Help: "Events a threshold rule could not track because its group table was full.",
+		},
+	)
+
 	DetectionMatchesTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "detection_matches_total",

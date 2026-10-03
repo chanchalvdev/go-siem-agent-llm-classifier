@@ -1,6 +1,7 @@
 package detection
 
 import (
+	"fmt"
 	"net"
 	"regexp"
 	"strings"
@@ -53,6 +54,17 @@ func (e *Engine) Verdict(ev models.LogEvent, dets []models.Detection) models.Cla
 		}
 		if rule.Remediation != "" {
 			out.Remediation = rule.Remediation
+		}
+	}
+	if top.Count > 0 {
+		// Say what crossed the threshold, not just what the rule is about.
+		out.Summary = fmt.Sprintf("%s: %d matching events", top.Title, top.Count)
+		if top.Group != "" {
+			out.Summary += " from " + top.Group
+		}
+		out.Summary += " (" + top.Threshold + ")."
+		if rule != nil && rule.Description != "" {
+			out.Summary += " " + rule.Description
 		}
 	}
 	return out

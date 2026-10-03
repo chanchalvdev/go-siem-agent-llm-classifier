@@ -1,0 +1,195 @@
+title: SSH Brute Force
+id: 0f6c2a4e-6a43-4a0e-9a5d-1f3f8f5b2c11
+status: stable
+description: Ten or more failed SSH logins from one source IP within five minutes, the signature of password guessing.
+author: siemagent contributors
+tags:
+  - attack.credential_access
+  - attack.t1110.001
+logsource:
+  product: linux
+  service: sshd
+detection:
+  selection:
+    - 'Failed password for'
+    - 'authentication failure'
+  timeframe: 5m
+  condition: selection | count() by src_ip >= 10
+falsepositives:
+  - A misconfigured script retrying with an old password
+level: high
+remediation: Block the source IP at the firewall, check for a later successful login from it, and enforce key-based SSH with fail2ban.
+samples:
+  match:
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 185.220.101.4 port 52000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 185.220.101.4 port 52001 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 185.220.101.4 port 52002 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 185.220.101.4 port 52003 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 185.220.101.4 port 52004 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 185.220.101.4 port 52005 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 185.220.101.4 port 52006 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 185.220.101.4 port 52007 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 185.220.101.4 port 52008 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 185.220.101.4 port 52009 ssh2'
+  no_match:
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 10.0.0.1 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 10.0.0.2 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 10.0.0.3 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 10.0.0.4 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 10.0.0.5 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 10.0.0.6 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 10.0.0.7 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 10.0.0.8 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 10.0.0.9 port 50000 ssh2'
+---
+title: Password Spraying
+id: 6d1b9b6e-2b1d-4a59-8f62-5a0f0c7e3d42
+status: test
+description: One source IP failed to log in as five or more different users within ten minutes, a password-spraying pattern that stays under per-account lockouts.
+author: siemagent contributors
+tags:
+  - attack.credential_access
+  - attack.t1110.003
+logsource:
+  product: linux
+  service: sshd
+detection:
+  selection:
+    - 'Failed password for'
+    - 'Invalid user'
+  timeframe: 10m
+  condition: selection | count(user) by src_ip >= 5
+falsepositives:
+  - Jump hosts or NAT gateways shared by many users
+level: high
+remediation: Block the source, check every targeted account for a successful login afterwards, and require MFA for remote access.
+samples:
+  match:
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for admin from 45.33.32.156 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for oracle from 45.33.32.156 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for postgres from 45.33.32.156 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for ubuntu from 45.33.32.156 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for test from 45.33.32.156 port 50000 ssh2'
+  no_match:
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 45.33.32.156 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 45.33.32.156 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 45.33.32.156 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 45.33.32.156 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 45.33.32.156 port 50000 ssh2'
+    - 'Oct 11 22:14:15 web01 sshd[4721]: Failed password for root from 45.33.32.156 port 50000 ssh2'
+---
+title: Web Content Discovery Scan
+id: 3a8e7c55-91f2-4c1a-b0de-7e2d4c6a9b18
+status: test
+description: One client received fifteen or more 404 responses within a minute, typical of directory brute-forcing tools such as gobuster or dirb.
+author: siemagent contributors
+tags:
+  - attack.reconnaissance
+  - attack.t1595.003
+logsource:
+  category: webserver
+detection:
+  selection:
+    message|re: '"\s404\s'
+  timeframe: 1m
+  condition: selection | count() by src_ip >= 15
+falsepositives:
+  - Broken links crawled by a search engine
+  - Uptime monitors checking a removed page
+level: medium
+remediation: Rate-limit or block the client at the WAF and confirm none of the probed paths exist and return data.
+samples:
+  match:
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /admin HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /wp-login.php HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /.env HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /.git/config HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /phpmyadmin HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /backup.zip HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /config.php HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /server-status HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /old HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /test HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /db.sql HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /shell.php HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /xmlrpc.php HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /api/v1/debug HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /console HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+  no_match:
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /admin HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /wp-login.php HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /.env HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /.git/config HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /phpmyadmin HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /backup.zip HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /config.php HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /server-status HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /old HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /test HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /db.sql HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /shell.php HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /xmlrpc.php HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /api/v1/debug HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '198.51.100.23 - - [11/Oct/2026:22:14:15 +0000] "GET /console HTTP/1.1" 200 153 "-" "Mozilla/5.0"'
+    - '192.0.2.1 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.2 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.3 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.4 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.5 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.6 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.7 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.8 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.9 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.10 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.11 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.12 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.13 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+    - '192.0.2.14 - - [11/Oct/2026:22:14:15 +0000] "GET /missing HTTP/1.1" 404 153 "-" "Mozilla/5.0"'
+---
+title: Port Scan From One Source
+id: 9c4f1e2d-7b3a-4e8f-a6d5-2b1c0e9f8a77
+status: test
+description: Blocked connections from one source IP reached ten or more different destination ports within a minute.
+author: siemagent contributors
+tags:
+  - attack.discovery
+  - attack.t1046
+logsource:
+  category: firewall
+detection:
+  selection:
+    message|contains:
+      - 'BLOCK'
+      - 'DROP'
+      - 'DENY'
+  timeframe: 1m
+  condition: selection | count(dst_port) by src_ip >= 10
+falsepositives:
+  - Vulnerability scanners run by your own team
+level: medium
+remediation: Confirm whether the source is an authorised scanner; if not, block it and check exposed services for follow-up exploitation.
+samples:
+  match:
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=21 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=22 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=23 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=25 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=80 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=110 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=139 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=445 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=3389 WINDOW=1024'
+  no_match:
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
+    - 'Oct 11 22:14:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=203.0.113.50 DST=10.0.0.5 PROTO=TCP SPT=40000 DPT=443 WINDOW=1024'
