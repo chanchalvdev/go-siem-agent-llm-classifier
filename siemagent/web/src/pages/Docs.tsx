@@ -38,7 +38,7 @@ const ALL_SEV: { s: Severity; when: string }[] = [
 
 function H({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <h2 id={id} className="scroll-mt-4 text-lg font-semibold text-white mb-3 flex items-center gap-2">
+    <h2 id={id} className="scroll-mt-4 text-lg font-semibold text-fg mb-3 flex items-center gap-2">
       {children}
     </h2>
   )
@@ -46,7 +46,7 @@ function H({ id, children }: { id: string; children: React.ReactNode }) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-white/[0.03] p-4 text-sm leading-relaxed text-gray-300">
+    <div className="rounded-xl border border-line bg-fg/3 p-4 text-sm leading-relaxed text-fg-muted">
       {children}
     </div>
   )
@@ -55,17 +55,17 @@ function Card({ children }: { children: React.ReactNode }) {
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <li className="flex gap-3">
-      <span className="shrink-0 w-6 h-6 rounded-full bg-blue-600/20 text-blue-400 text-xs font-semibold flex items-center justify-center">
+      <span className="shrink-0 w-6 h-6 rounded-full bg-accent/15 text-accent-text text-xs font-semibold flex items-center justify-center">
         {n}
       </span>
-      <span className="text-sm text-gray-300 leading-relaxed pt-0.5">{children}</span>
+      <span className="text-sm text-fg-muted leading-relaxed pt-0.5">{children}</span>
     </li>
   )
 }
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className="font-mono text-[12px] bg-black/40 border border-white/5 rounded px-1.5 py-0.5 text-blue-300">
+    <code className="font-mono text-[12px] bg-surface-2 border border-line rounded px-1.5 py-0.5 text-accent-text">
       {children}
     </code>
   )
@@ -82,8 +82,8 @@ export function Docs() {
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* Table of contents */}
-      <nav className="hidden lg:block w-60 shrink-0 border-r border-white/5 overflow-y-auto p-4">
-        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">User Guide</p>
+      <nav className="hidden lg:block w-60 shrink-0 border-r border-line overflow-y-auto p-4">
+        <p className="text-[10px] text-fg-subtle uppercase tracking-widest mb-3">User Guide</p>
         <ul className="space-y-0.5">
           {SECTIONS.map((s) => {
             const Icon = s.icon
@@ -93,8 +93,8 @@ export function Docs() {
                   onClick={() => go(s.id)}
                   className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-left transition-colors ${
                     active === s.id
-                      ? 'bg-blue-600/20 text-blue-400 font-medium'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                      ? 'bg-accent/15 text-accent-text font-medium'
+                      : 'text-fg-muted hover:text-fg hover:bg-fg/4'
                   }`}
                 >
                   <Icon size={14} className="shrink-0" />
@@ -111,17 +111,17 @@ export function Docs() {
         <div className="max-w-3xl mx-auto px-5 py-6 space-y-10">
 
           {/* Hero */}
-          <header className="border-b border-white/5 pb-6">
+          <header className="border-b border-line pb-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center">
-                <Shield size={18} className="text-white" />
+              <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
+                <Shield size={18} className="text-on-accent" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white">SIEMAgent User Guide</h1>
-                <p className="text-xs text-gray-500">AI-powered security log classification & incident response</p>
+                <h1 className="text-xl font-bold text-fg">SIEMAgent User Guide</h1>
+                <p className="text-xs text-fg-subtle">AI-powered security log classification & incident response</p>
               </div>
             </div>
-            <p className="text-sm text-gray-400 leading-relaxed">
+            <p className="text-sm text-fg-muted leading-relaxed">
               SIEMAgent reads raw security logs, uses a large language model to classify each event,
               maps it to the MITRE ATT&CK framework, and — for critical events — automatically launches
               an AI agent that enriches the alert with threat intelligence and writes a response playbook.
@@ -130,13 +130,13 @@ export function Docs() {
 
           {/* Overview */}
           <section className="space-y-3">
-            <H id="overview"><BookOpen size={18} className="text-blue-400" /> What SIEMAgent does</H>
+            <H id="overview"><BookOpen size={18} className="text-accent-text" /> What SIEMAgent does</H>
             <Card>
-              Paste or upload a log line and SIEMAgent tells you, in seconds: <strong className="text-gray-100">what
-              kind of attack it is</strong>, <strong className="text-gray-100">how urgent it is</strong> (P1–P5),
-              which <strong className="text-gray-100">MITRE ATT&CK</strong> tactic and technique it matches, the
-              <strong className="text-gray-100"> indicators of compromise</strong> to block, and a
-              <strong className="text-gray-100"> recommended remediation</strong>. Every event is also embedded into
+              Paste or upload a log line and SIEMAgent tells you, in seconds: <strong className="text-fg">what
+              kind of attack it is</strong>, <strong className="text-fg">how urgent it is</strong> (P1–P5),
+              which <strong className="text-fg">MITRE ATT&CK</strong> tactic and technique it matches, the
+              <strong className="text-fg"> indicators of compromise</strong> to block, and a
+              <strong className="text-fg"> recommended remediation</strong>. Every event is also embedded into
               a vector database so you can later find similar past events.
             </Card>
             <div className="grid sm:grid-cols-3 gap-3">
@@ -145,9 +145,9 @@ export function Docs() {
                 { t: 'Investigate', d: 'Agent auto-enriches P1/P2 alerts with threat intel' },
                 { t: 'Correlate', d: 'Vector search surfaces similar historical events' },
               ].map((f) => (
-                <div key={f.t} className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
-                  <p className="text-sm font-medium text-blue-400 mb-1">{f.t}</p>
-                  <p className="text-xs text-gray-400 leading-relaxed">{f.d}</p>
+                <div key={f.t} className="rounded-xl border border-line bg-fg/3 p-3">
+                  <p className="text-sm font-medium text-accent-text mb-1">{f.t}</p>
+                  <p className="text-xs text-fg-muted leading-relaxed">{f.d}</p>
                 </div>
               ))}
             </div>
@@ -155,13 +155,13 @@ export function Docs() {
 
           {/* Quickstart */}
           <section className="space-y-3">
-            <H id="quickstart"><Zap size={18} className="text-blue-400" /> Classify your first log</H>
+            <H id="quickstart"><Zap size={18} className="text-accent-text" /> Classify your first log</H>
             <ol className="space-y-3">
               <Step n={1}>
                 Paste a log line into the input at the top of the screen — for example a syslog line
                 like <Code>{'<165>1 2024-01-15T10:30:00Z web sshd 1234 - Failed password for root from 192.168.1.100'}</Code>.
               </Step>
-              <Step n={2}>Press <Code>Enter</Code> or click <strong className="text-gray-100">Classify</strong>.</Step>
+              <Step n={2}>Press <Code>Enter</Code> or click <strong className="text-fg">Classify</strong>.</Step>
               <Step n={3}>
                 The event appears in the list on the left, and a detail panel slides in on the right with the full analysis.
               </Step>
@@ -174,7 +174,7 @@ export function Docs() {
 
           {/* Results */}
           <section className="space-y-3">
-            <H id="results"><FileText size={18} className="text-blue-400" /> Reading a result</H>
+            <H id="results"><FileText size={18} className="text-accent-text" /> Reading a result</H>
             <div className="space-y-2">
               {[
                 ['Severity badge', 'P1 (Critical) → P5 (Info). Drives colour-coding and whether an auto-investigation fires.'],
@@ -184,11 +184,11 @@ export function Docs() {
                 ['Indicators of Compromise', 'Concrete IPs, domains, hashes, usernames and paths pulled from the log — the things to block.'],
                 ['Recommended action', 'A short, concrete remediation you can hand to an on-call responder.'],
               ].map(([t, d]) => (
-                <div key={t} className="flex gap-3 rounded-lg border border-white/5 bg-white/[0.03] p-3">
-                  <ChevronRight size={16} className="text-blue-400 shrink-0 mt-0.5" />
+                <div key={t} className="flex gap-3 rounded-lg border border-line bg-fg/3 p-3">
+                  <ChevronRight size={16} className="text-accent-text shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-gray-100">{t}</p>
-                    <p className="text-xs text-gray-400 leading-relaxed mt-0.5">{d}</p>
+                    <p className="text-sm font-medium text-fg">{t}</p>
+                    <p className="text-xs text-fg-muted leading-relaxed mt-0.5">{d}</p>
                   </div>
                 </div>
               ))}
@@ -197,9 +197,9 @@ export function Docs() {
 
           {/* Upload */}
           <section className="space-y-3">
-            <H id="upload"><Upload size={18} className="text-blue-400" /> Bulk upload a log file</H>
+            <H id="upload"><Upload size={18} className="text-accent-text" /> Bulk upload a log file</H>
             <Card>
-              Click <strong className="text-gray-100">Upload</strong> (top-left) or drag a <Code>.log</Code> /
+              Click <strong className="text-fg">Upload</strong> (top-left) or drag a <Code>.log</Code> /
               <Code>.txt</Code> file onto the window. SIEMAgent parses every line and classifies them in parallel
               through a worker pool — up to 500 lines per upload. Results stream into the event list as they complete,
               and the analytics panel updates live.
@@ -208,27 +208,27 @@ export function Docs() {
 
           {/* Incidents */}
           <section className="space-y-3">
-            <H id="incidents"><Radio size={18} className="text-blue-400" /> Live incident investigations</H>
+            <H id="incidents"><Radio size={18} className="text-accent-text" /> Live incident investigations</H>
             <Card>
               When a classification comes back <SeverityBadge severity="P1" size="sm" /> or
               {' '}<SeverityBadge severity="P2" size="sm" />, SIEMAgent automatically launches an autonomous agent.
               A banner appears at the top of the screen — click it to open the investigation.
             </Card>
-            <p className="text-sm text-gray-400">Inside an investigation you'll see:</p>
+            <p className="text-sm text-fg-muted">Inside an investigation you'll see:</p>
             <ul className="space-y-2">
-              <Step n={1}><strong className="text-gray-100">A tool timeline</strong> — every action the agent took: IP reputation lookups (AbuseIPDB), threat-intel pulses (AlienVault OTX), MITRE technique lookups, and searches over your own past events.</Step>
-              <Step n={2}><strong className="text-gray-100">Threat-intel cards</strong> — the enriched verdict for each indicator.</Step>
-              <Step n={3}><strong className="text-gray-100">A streaming playbook</strong> — a full markdown incident-response plan, written token-by-token. Use <strong className="text-gray-100">Copy Playbook</strong> to hand it off.</Step>
+              <Step n={1}><strong className="text-fg">A tool timeline</strong> — every action the agent took: IP reputation lookups (AbuseIPDB), threat-intel pulses (AlienVault OTX), MITRE technique lookups, and searches over your own past events.</Step>
+              <Step n={2}><strong className="text-fg">Threat-intel cards</strong> — the enriched verdict for each indicator.</Step>
+              <Step n={3}><strong className="text-fg">A streaming playbook</strong> — a full markdown incident-response plan, written token-by-token. Use <strong className="text-fg">Copy Playbook</strong> to hand it off.</Step>
             </ul>
           </section>
 
           {/* Analytics */}
           <section className="space-y-3">
-            <H id="analytics"><BarChart2 size={18} className="text-blue-400" /> Analytics & MITRE heatmap</H>
+            <H id="analytics"><BarChart2 size={18} className="text-accent-text" /> Analytics & MITRE heatmap</H>
             <Card>
               The Analytics tab summarises everything classified this session: counts of critical and high events,
               a breakdown by attack type, an event-rate timeline for the last 6 hours, and a distribution of MITRE
-              tactics. The <strong className="text-gray-100">MITRE ATT&CK heatmap</strong> plots tactics against a
+              tactics. The <strong className="text-fg">MITRE ATT&CK heatmap</strong> plots tactics against a
               weekly grid — brighter cells mean more (or more severe) activity, so you can spot which stage of the
               kill chain is lighting up.
             </Card>
@@ -236,26 +236,26 @@ export function Docs() {
 
           {/* Search */}
           <section className="space-y-3">
-            <H id="search"><Search size={18} className="text-blue-400" /> Finding similar events</H>
+            <H id="search"><Search size={18} className="text-accent-text" /> Finding similar events</H>
             <Card>
               Every classified event is embedded (via a local <Code>nomic-embed-text</Code> model) and stored in a
               Qdrant vector database. Open any event's detail panel and scroll to
-              <strong className="text-gray-100"> Similar past events</strong> to see semantically related incidents —
+              <strong className="text-fg"> Similar past events</strong> to see semantically related incidents —
               useful for spotting a campaign made of individually low-severity events.
             </Card>
           </section>
 
           {/* Severity reference */}
           <section className="space-y-3">
-            <H id="severity"><Shield size={18} className="text-blue-400" /> Severity reference</H>
-            <div className="rounded-xl border border-white/5 overflow-hidden">
+            <H id="severity"><Shield size={18} className="text-accent-text" /> Severity reference</H>
+            <div className="rounded-xl border border-line overflow-hidden">
               {ALL_SEV.map(({ s, when }, i) => (
                 <div
                   key={s}
-                  className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-white/5' : ''}`}
+                  className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-line' : ''}`}
                 >
                   <SeverityBadge severity={s} size="sm" />
-                  <span className="text-sm text-gray-400">{when}</span>
+                  <span className="text-sm text-fg-muted">{when}</span>
                 </div>
               ))}
             </div>
@@ -263,7 +263,7 @@ export function Docs() {
 
           {/* FAQ */}
           <section className="space-y-3">
-            <H id="faq"><HelpCircle size={18} className="text-blue-400" /> Tips & FAQ</H>
+            <H id="faq"><HelpCircle size={18} className="text-accent-text" /> Tips & FAQ</H>
             <div className="space-y-2">
               {[
                 ['Why did no investigation fire?', 'Auto-investigation only triggers for P1/P2 events. Lower severities are classified but not escalated.'],
@@ -271,12 +271,12 @@ export function Docs() {
                 ['Threat-intel cards are empty.', 'AbuseIPDB and OTX require API keys (ABUSEIPDB_KEY, OTX_API_KEY) on the server. Without them the agent still runs, just without external enrichment.'],
                 ['How accurate is the classification?', 'It is an LLM judgement, not ground truth. Use the confidence score and always verify P1s before acting.'],
               ].map(([q, a]) => (
-                <details key={q} className="group rounded-lg border border-white/5 bg-white/[0.03] px-4 py-3">
-                  <summary className="cursor-pointer text-sm font-medium text-gray-200 list-none flex items-center justify-between">
+                <details key={q} className="group rounded-lg border border-line bg-fg/3 px-4 py-3">
+                  <summary className="cursor-pointer text-sm font-medium text-fg list-none flex items-center justify-between">
                     {q}
-                    <ChevronRight size={14} className="text-gray-500 group-open:rotate-90 transition-transform" />
+                    <ChevronRight size={14} className="text-fg-subtle group-open:rotate-90 transition-transform" />
                   </summary>
-                  <p className="text-xs text-gray-400 leading-relaxed mt-2">{a}</p>
+                  <p className="text-xs text-fg-muted leading-relaxed mt-2">{a}</p>
                 </details>
               ))}
             </div>
@@ -284,14 +284,14 @@ export function Docs() {
 
           {/* API */}
           <section className="space-y-3">
-            <H id="api"><Terminal size={18} className="text-blue-400" /> For developers</H>
+            <H id="api"><Terminal size={18} className="text-accent-text" /> For developers</H>
             <Card>
               Everything in this UI is backed by a documented HTTP API. The full interactive
               OpenAPI / Swagger reference — with request/response schemas and a "try it out" console — is served at
-              {' '}<a href="/docs" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">/docs</a>.
+              {' '}<a href="/docs" target="_blank" rel="noreferrer" className="text-accent-text hover:underline">/docs</a>.
               Key endpoints:
             </Card>
-            <div className="rounded-xl border border-white/5 overflow-hidden text-sm">
+            <div className="rounded-xl border border-line overflow-hidden text-sm">
               {[
                 ['POST', '/api/classify', 'Classify a single log line'],
                 ['POST', '/api/ingest', 'Bulk-classify up to 500 lines'],
@@ -299,18 +299,18 @@ export function Docs() {
                 ['GET', '/api/analytics/summary', 'Session analytics'],
                 ['GET', '/ws/alerts', 'WebSocket live incident stream'],
               ].map(([m, p, d], i) => (
-                <div key={p} className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-white/5' : ''}`}>
+                <div key={p} className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-line' : ''}`}>
                   <span className={`font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                    m === 'GET' ? 'bg-green-500/15 text-green-400' : 'bg-blue-500/15 text-blue-400'
+                    m === 'GET' ? 'bg-success/10 text-success' : 'bg-accent/10 text-accent-text'
                   }`}>{m}</span>
                   <Code>{p}</Code>
-                  <span className="text-xs text-gray-500 ml-auto hidden sm:block">{d}</span>
+                  <span className="text-xs text-fg-subtle ml-auto hidden sm:block">{d}</span>
                 </div>
               ))}
             </div>
           </section>
 
-          <footer className="border-t border-white/5 pt-4 text-xs text-gray-600">
+          <footer className="border-t border-line pt-4 text-xs text-fg-subtle">
             SIEMAgent · AI Security Classifier — this guide is also available offline inside the app.
           </footer>
         </div>

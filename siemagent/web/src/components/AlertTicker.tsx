@@ -13,9 +13,9 @@ const STATUS_TEXT: Record<Incident['status'], string> = {
 }
 
 function StatusIcon({ status }: { status: Incident['status'] }) {
-  if (status === 'complete') return <CheckCircle2 size={14} className="text-green-400" />
-  if (status === 'failed') return <AlertTriangle size={14} className="text-red-400" />
-  return <Loader2 size={14} className="animate-spin text-orange-400" />
+  if (status === 'complete') return <CheckCircle2 size={14} className="text-success" />
+  if (status === 'failed') return <AlertTriangle size={14} className="text-danger" />
+  return <Loader2 size={14} className="animate-spin text-warning" />
 }
 
 // AlertTicker shows a slide-in banner per active incident. It is intentionally
@@ -29,16 +29,16 @@ export function AlertTicker({ incidents, onSelect }: Props) {
         <button
           key={inc.id}
           onClick={() => onSelect(inc.id)}
-          className="ticker-in flex items-center gap-2 rounded-lg border border-white/10
-            bg-gray-900/95 px-3 py-2 text-left text-sm shadow-lg backdrop-blur
-            hover:border-white/20"
+          className="ticker-in flex items-center gap-2 rounded-lg border border-line-strong
+            bg-surface/95 px-3 py-2 text-left text-sm shadow-lg backdrop-blur
+            hover:border-fg/20"
         >
-          <span className="rounded bg-red-500/15 px-1.5 py-0.5 font-mono text-[10px]
-            font-semibold text-red-400 severity-pulse">
+          <span className="rounded bg-danger/10 px-1.5 py-0.5 font-mono text-[10px]
+            font-semibold text-danger severity-pulse">
             INCIDENT
           </span>
-          <span className="font-mono text-xs text-gray-400">{inc.id}</span>
-          <span className="ml-auto flex items-center gap-1 text-xs text-gray-300">
+          <span className="font-mono text-xs text-fg-muted">{inc.id}</span>
+          <span className="ml-auto flex items-center gap-1 text-xs text-fg-muted">
             <StatusIcon status={inc.status} />
             {STATUS_TEXT[inc.status]}
           </span>

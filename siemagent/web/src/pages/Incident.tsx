@@ -8,16 +8,16 @@ interface Props {
 }
 
 const STATUS_CHIP: Record<IncidentData['status'], string> = {
-  investigating: 'bg-orange-500/15 text-orange-300',
-  complete: 'bg-green-500/15 text-green-300',
-  failed: 'bg-red-500/15 text-red-300',
+  investigating: 'bg-warning/10 text-warning',
+  complete: 'bg-success/10 text-success',
+  failed: 'bg-danger/10 text-danger',
 }
 
 export function Incident({ incident, onClose }: Props) {
   const [copied, setCopied] = useState(false)
 
   if (!incident) {
-    return <p className="p-6 text-sm text-gray-500">Select an incident to view its investigation.</p>
+    return <p className="p-6 text-sm text-fg-subtle">Select an incident to view its investigation.</p>
   }
 
   const copy = () => {
@@ -31,23 +31,23 @@ export function Incident({ incident, onClose }: Props) {
       {/* Left: tool timeline + threat intel */}
       <aside className="lg:w-2/5">
         <div className="mb-2 flex items-center gap-2">
-          <span className="font-mono text-sm text-gray-200">Incident {incident.id}</span>
+          <span className="font-mono text-sm text-fg">Incident {incident.id}</span>
           <span className={`rounded px-2 py-0.5 text-xs font-semibold ${STATUS_CHIP[incident.status]}`}>
             {incident.status}
           </span>
           {onClose && (
-            <button onClick={onClose} className="ml-auto text-xs text-gray-500 hover:text-gray-300">
+            <button onClick={onClose} className="ml-auto text-xs text-fg-subtle hover:text-fg-muted">
               close
             </button>
           )}
         </div>
-        <h3 className="mb-1 text-xs uppercase tracking-wide text-gray-500">Investigation</h3>
+        <h3 className="mb-1 text-xs uppercase tracking-wide text-fg-subtle">Investigation</h3>
         <ol className="mb-4 space-y-2">
           {incident.tools.map((t, i) => (
-            <li key={i} className="rounded-lg border border-white/10 bg-white/5 p-2">
+            <li key={i} className="rounded-lg border border-line-strong bg-fg/4 p-2">
               <details>
-                <summary className="cursor-pointer font-mono text-xs text-blue-300">{t.name}</summary>
-                <pre className="mt-1 whitespace-pre-wrap break-all text-[11px] text-gray-400">
+                <summary className="cursor-pointer font-mono text-xs text-accent-text">{t.name}</summary>
+                <pre className="mt-1 whitespace-pre-wrap break-all text-[11px] text-fg-muted">
                   {t.input}
                   {t.result ? `\n→ ${t.result}` : ''}
                 </pre>
@@ -55,21 +55,21 @@ export function Incident({ incident, onClose }: Props) {
             </li>
           ))}
         </ol>
-        <h3 className="mb-1 text-xs uppercase tracking-wide text-gray-500">Threat Intel</h3>
+        <h3 className="mb-1 text-xs uppercase tracking-wide text-fg-subtle">Threat Intel</h3>
         <ThreatIntelPanel tools={incident.tools} />
       </aside>
 
       {/* Right: streaming playbook */}
       <section className="lg:w-3/5">
         <div className="mb-2 flex items-center">
-          <h3 className="text-xs uppercase tracking-wide text-gray-500">Playbook</h3>
-          <button onClick={copy} className="ml-auto rounded border border-white/10 px-2 py-1
-            text-xs text-gray-300 hover:border-white/20">
+          <h3 className="text-xs uppercase tracking-wide text-fg-subtle">Playbook</h3>
+          <button onClick={copy} className="ml-auto rounded border border-line-strong px-2 py-1
+            text-xs text-fg-muted hover:border-fg/20">
             {copied ? 'Copied' : 'Copy Playbook'}
           </button>
         </div>
-        <pre className="whitespace-pre-wrap rounded-lg border border-white/10 bg-black/30 p-3
-          text-sm leading-relaxed text-gray-200">
+        <pre className="whitespace-pre-wrap rounded-lg border border-line-strong bg-surface-2 p-3
+          text-sm leading-relaxed text-fg">
           {incident.playbook || 'Synthesizing playbook…'}
         </pre>
       </section>

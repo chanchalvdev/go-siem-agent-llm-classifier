@@ -40,8 +40,8 @@ export function IOCList({ iocs }: Props) {
           Globe
 
         const chip = (
-          <span className="inline-flex items-center gap-1 font-mono text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded border border-gray-700 hover:border-gray-500 transition-colors">
-            <Icon size={12} className="shrink-0 text-gray-500" />
+          <span className="inline-flex items-center gap-1 font-mono text-xs bg-surface-2 text-fg-muted px-2 py-1 rounded border border-line-strong hover:border-line-strong transition-colors">
+            <Icon size={12} className="shrink-0 text-fg-subtle" />
             {ioc}
           </span>
         )

@@ -53,7 +53,7 @@ export function MITREHeatmap({ events, onSelect }: Props) {
   const max = grid.get('__max__')?.count ?? 0
 
   if (events.length === 0) {
-    return <p className="text-sm text-gray-500 italic">No events to chart yet.</p>
+    return <p className="text-sm text-fg-subtle italic">No events to chart yet.</p>
   }
 
   return (
@@ -61,11 +61,11 @@ export function MITREHeatmap({ events, onSelect }: Props) {
       <div className="inline-grid gap-1" style={{ gridTemplateColumns: `minmax(9rem,auto) repeat(7,1.5rem)` }}>
         <div />
         {DAYS.map((d) => (
-          <div key={d} className="text-center text-[10px] text-gray-500">{d}</div>
+          <div key={d} className="text-center text-[10px] text-fg-subtle">{d}</div>
         ))}
         {TACTICS.map((tactic) => (
           <div key={tactic} className="contents">
-            <div className="truncate pr-2 text-[11px] text-gray-400" title={tactic}>{tactic}</div>
+            <div className="truncate pr-2 text-[11px] text-fg-muted" title={tactic}>{tactic}</div>
             {DAYS.map((_, day) => {
               const cell = grid.get(`${tactic}|${day}`)
               const opacity = cell && max ? 0.15 + 0.85 * (cell.count / max) : 0
@@ -74,7 +74,7 @@ export function MITREHeatmap({ events, onSelect }: Props) {
                   key={day}
                   onClick={() => cell && onSelect?.(tactic, day)}
                   title={cell ? `${tactic} · ${DAYS[day]}: ${cell.count} (${cell.severity})` : ''}
-                  className="h-6 w-6 rounded-sm border border-white/5"
+                  className="h-6 w-6 rounded-sm border border-line"
                   style={{ background: cell ? SEVERITY_COLORS[cell.severity] : 'transparent', opacity: opacity || 1 }}
                 />
               )
@@ -82,7 +82,7 @@ export function MITREHeatmap({ events, onSelect }: Props) {
           </div>
         ))}
       </div>
-      <p className="mt-2 text-xs text-gray-500">{events.length} events · colour = highest severity, opacity = volume</p>
+      <p className="mt-2 text-xs text-fg-subtle">{events.length} events · colour = highest severity, opacity = volume</p>
     </div>
   )
 }

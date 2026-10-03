@@ -48,6 +48,7 @@ Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Ev
 - **Prometheus metrics** — `/metrics` endpoint for Grafana integration
 - **Swagger UI** — interactive API docs at `/docs`
 - **Fully responsive** — works on mobile, tablet, and desktop
+- **Light and dark themes** — follows the OS by default, switchable (System / Light / Dark); every text colour meets WCAG AA contrast in both
 
 ---
 

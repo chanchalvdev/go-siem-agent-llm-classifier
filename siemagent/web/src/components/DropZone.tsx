@@ -64,23 +64,23 @@ export function DropZone({ onResults }: Props) {
         className={`
           flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed text-sm transition-all
           ${dragging
-            ? 'border-blue-500 bg-blue-900/20 text-blue-400'
-            : 'border-white/10 hover:border-white/25 text-gray-500 hover:text-gray-300'
+            ? 'border-accent bg-accent/10 text-accent-text'
+            : 'border-line-strong hover:border-fg/25 text-fg-subtle hover:text-fg-muted'
           }
         `}
       >
         <Upload size={14} />
         {progress ? (
-          <span className="text-xs text-blue-400">
+          <span className="text-xs text-accent-text">
             {progress.done}/{progress.total}
           </span>
         ) : (
           <span className="hidden sm:inline text-xs">Upload</span>
         )}
         {progress && (
-          <div className="w-16 h-1 bg-white/10 rounded-full overflow-hidden">
+          <div className="w-16 h-1 bg-fg/10 rounded-full overflow-hidden">
             <div
-              className="h-full bg-blue-500 rounded-full transition-all"
+              className="h-full bg-accent-strong rounded-full transition-all"
               style={{ width: `${(progress.done / progress.total) * 100}%` }}
             />
           </div>
@@ -90,8 +90,8 @@ export function DropZone({ onResults }: Props) {
       <input ref={inputRef} type="file" accept=".log,.txt" className="hidden" onChange={handleChange} />
 
       {toast && (
-        <div className="absolute top-full mt-2 left-0 z-50 flex items-center gap-2 bg-[#0d1426] border border-white/10 text-xs text-gray-200 px-3 py-2 rounded-xl shadow-xl whitespace-nowrap">
-          <CheckCircle size={12} className="text-green-400 shrink-0" />
+        <div className="absolute top-full mt-2 left-0 z-50 flex items-center gap-2 bg-surface border border-line-strong text-xs text-fg px-3 py-2 rounded-xl shadow-xl whitespace-nowrap">
+          <CheckCircle size={12} className="text-success shrink-0" />
           {toast}
         </div>
       )}

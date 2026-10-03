@@ -46,7 +46,7 @@ export function MITREBadge({ tactic, technique }: Props) {
   return (
     <span className="inline-flex items-center gap-1.5 flex-wrap">
       {!noTactic && (
-        <span className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded border border-gray-700">
+        <span className="text-xs bg-surface-2 text-fg-muted px-2 py-0.5 rounded border border-line-strong">
           {tactic}
         </span>
       )}
@@ -56,7 +56,7 @@ export function MITREBadge({ tactic, technique }: Props) {
           target="_blank"
           rel="noopener noreferrer"
           title={tooltipName ?? technique}
-          className="text-xs font-mono text-blue-400 hover:text-blue-300 bg-gray-800 px-2 py-0.5 rounded border border-gray-700 hover:border-blue-600 transition-colors"
+          className="text-xs font-mono text-accent-text hover:text-accent-text bg-surface-2 px-2 py-0.5 rounded border border-line-strong hover:border-accent transition-colors"
         >
           {technique}
         </a>

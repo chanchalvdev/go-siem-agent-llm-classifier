@@ -32,10 +32,10 @@ export function EventCard({ event, onClick, selected, score }: Props) {
       onClick={onClick}
       className={`
         w-full text-left rounded-xl border transition-all duration-150
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
         ${selected
-          ? 'bg-blue-950/40 border-blue-700/60 shadow-lg shadow-blue-900/20'
-          : 'bg-white/4 border-white/6 hover:bg-white/7 hover:border-white/10'
+          ? 'bg-accent/10 border-accent/50 shadow-pop'
+          : 'bg-surface border-line shadow-card hover:border-line-strong hover:bg-surface-2'
         }
       `}
       style={{ borderLeft: `3px solid ${borderColor}` }}
@@ -45,15 +45,15 @@ export function EventCard({ event, onClick, selected, score }: Props) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <SeverityBadge severity={sev} size="sm" />
-            <span className="text-sm font-semibold text-gray-100 truncate">{event.attack_type}</span>
+            <span className="text-sm font-semibold text-fg truncate">{event.attack_type}</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {score !== undefined && (
-              <span className="text-[10px] text-blue-400 bg-blue-900/30 px-1.5 py-0.5 rounded-full border border-blue-800/40">
+              <span className="text-[10px] text-accent-text bg-accent/10 px-1.5 py-0.5 rounded-full border border-accent/30">
                 {score}% match
               </span>
             )}
-            <span className="text-[10px] text-gray-600">
+            <span className="text-[10px] text-fg-subtle">
               {timeAgo(event.processed_at || event.event.timestamp)}
             </span>
           </div>
@@ -61,7 +61,7 @@ export function EventCard({ event, onClick, selected, score }: Props) {
 
         {/* Row 2: host / app */}
         {(event.event.hostname || event.event.app_name) && (
-          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-gray-600">
+          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-fg-subtle">
             {event.event.hostname && <span>{event.event.hostname}</span>}
             {event.event.hostname && event.event.app_name && <span>·</span>}
             {event.event.app_name && <span>{event.event.app_name}</span>}
@@ -70,23 +70,23 @@ export function EventCard({ event, onClick, selected, score }: Props) {
 
         {/* Row 3: summary */}
         {summary && (
-          <p className="mt-1.5 text-xs text-gray-400 leading-relaxed">{summary}</p>
+          <p className="mt-1.5 text-xs text-fg-muted leading-relaxed">{summary}</p>
         )}
 
         {/* Row 4: MITRE + confidence */}
         <div className="mt-2.5 flex items-center justify-between gap-2">
           <MITREBadge tactic={event.mitre?.tactic ?? ''} technique={event.mitre?.technique_id ?? ''} />
           <div className="flex items-center gap-1.5 shrink-0">
-            <div className="h-1 w-14 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-1 w-14 bg-fg/10 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full"
                 style={{
                   width: `${confidence}%`,
-                  background: confidence >= 80 ? '#3B82F6' : confidence >= 60 ? '#F59E0B' : '#6B7280'
+                  background: confidence >= 80 ? 'rgb(var(--accent))' : confidence >= 60 ? 'rgb(var(--warning))' : 'rgb(var(--fg-subtle))'
                 }}
               />
             </div>
-            <span className="text-[10px] text-gray-600">{confidence}%</span>
+            <span className="text-[10px] text-fg-subtle">{confidence}%</span>
           </div>
         </div>
       </div>

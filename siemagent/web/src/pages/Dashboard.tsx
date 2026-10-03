@@ -13,6 +13,7 @@ import { SimilarEvents } from '../components/SimilarEvents'
 import { AnalyticsPanel } from '../components/AnalyticsPanel'
 import { MITREHeatmap } from '../components/MITREHeatmap'
 import { Docs } from './Docs'
+import { ThemeToggle } from '../components/ThemeToggle'
 
 const ALL_SEVERITIES: Severity[] = ['P1', 'P2', 'P3', 'P4', 'P5']
 const EVENTS_KEY = 'classified-events'
@@ -94,35 +95,35 @@ export function Dashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-[#0a0f1e] text-gray-100 overflow-hidden">
+    <div className="flex h-screen bg-canvas text-fg overflow-hidden">
 
       {/* ── Sidebar overlay (mobile) ── */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-overlay/50 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* ── Sidebar ── */}
       <aside className={`
-        fixed top-0 left-0 h-full z-50 w-64 bg-[#0d1426] border-r border-white/5
+        fixed top-0 left-0 h-full z-50 w-64 bg-surface border-r border-line
         flex flex-col transition-transform duration-300 ease-in-out
         lg:static lg:translate-x-0 lg:z-auto
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo */}
-        <div className="px-5 py-5 border-b border-white/5 flex items-center justify-between">
+        <div className="px-5 py-5 border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-              <Shield size={16} className="text-white" />
+            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shrink-0">
+              <Shield size={16} className="text-on-accent" />
             </div>
             <div>
-              <p className="font-semibold text-white text-sm leading-tight">SIEMAgent</p>
-              <p className="text-[10px] text-gray-500 leading-tight">AI Security Classifier</p>
+              <p className="font-semibold text-fg text-sm leading-tight">SIEMAgent</p>
+              <p className="text-[10px] text-fg-subtle leading-tight">AI Security Classifier</p>
             </div>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-500 hover:text-gray-300">
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-fg-subtle hover:text-fg-muted">
             <X size={18} />
           </button>
         </div>
@@ -133,14 +134,14 @@ export function Dashboard() {
             onClick={() => { setActiveTab('events'); setSidebarOpen(false) }}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
               activeTab === 'events'
-                ? 'bg-blue-600/20 text-blue-400 font-medium'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                ? 'bg-accent/15 text-accent-text font-medium'
+                : 'text-fg-muted hover:text-fg hover:bg-fg/4'
             }`}
           >
             <AlertTriangle size={16} />
             Events
             {events.length > 0 && (
-              <span className="ml-auto text-xs bg-blue-600/30 text-blue-400 px-1.5 py-0.5 rounded-full">
+              <span className="ml-auto text-xs bg-accent/15 text-accent-text px-1.5 py-0.5 rounded-full">
                 {events.length}
               </span>
             )}
@@ -149,8 +150,8 @@ export function Dashboard() {
             onClick={() => { setActiveTab('analytics'); setSidebarOpen(false) }}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
               activeTab === 'analytics'
-                ? 'bg-blue-600/20 text-blue-400 font-medium'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                ? 'bg-accent/15 text-accent-text font-medium'
+                : 'text-fg-muted hover:text-fg hover:bg-fg/4'
             }`}
           >
             <BarChart2 size={16} />
@@ -160,8 +161,8 @@ export function Dashboard() {
             onClick={() => { setActiveTab('docs'); setSidebarOpen(false) }}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
               activeTab === 'docs'
-                ? 'bg-blue-600/20 text-blue-400 font-medium'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                ? 'bg-accent/15 text-accent-text font-medium'
+                : 'text-fg-muted hover:text-fg hover:bg-fg/4'
             }`}
           >
             <BookOpen size={16} />
@@ -169,32 +170,38 @@ export function Dashboard() {
           </button>
         </nav>
 
+        {/* Theme (header has it on md+; small screens reach it here) */}
+        <div className="px-4 pb-3 md:hidden">
+          <p className="text-[10px] text-fg-subtle uppercase tracking-widest mb-2">Theme</p>
+          <ThemeToggle />
+        </div>
+
         {/* Severity filter */}
-        <div className="px-4 py-4 border-t border-white/5 mt-auto">
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Filter by Severity</p>
+        <div className="px-4 py-4 border-t border-line mt-auto">
+          <p className="text-[10px] text-fg-subtle uppercase tracking-widest mb-3">Filter by Severity</p>
           <div className="space-y-2">
             {ALL_SEVERITIES.map((s) => (
               <label key={s} className="flex items-center gap-2 cursor-pointer group">
                 <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
                   severityFilter.has(s)
-                    ? 'bg-blue-600 border-blue-600'
-                    : 'border-gray-600 bg-transparent'
+                    ? 'bg-accent border-accent'
+                    : 'border-line-strong bg-transparent'
                 }`} onClick={() => toggleSeverity(s)}>
                   {severityFilter.has(s) && (
                     <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M1 4L3.5 6.5L9 1" stroke="currentColor" className="text-on-accent" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )}
                 </div>
                 <SeverityBadge severity={s} size="sm" />
-                <span className="ml-auto text-xs text-gray-600">{severityCounts[s] || 0}</span>
+                <span className="ml-auto text-xs text-fg-subtle">{severityCounts[s] || 0}</span>
               </label>
             ))}
           </div>
           {events.length > 0 && (
             <button
               onClick={clear}
-              className="mt-4 w-full text-xs text-gray-600 hover:text-red-400 flex items-center justify-center gap-1.5 py-1.5 rounded border border-white/5 hover:border-red-900/50 transition-colors"
+              className="mt-4 w-full text-xs text-fg-subtle hover:text-danger flex items-center justify-center gap-1.5 py-1.5 rounded border border-line hover:border-danger/30 transition-colors"
             >
               <RefreshCw size={11} /> Clear all ({events.length})
             </button>
@@ -206,11 +213,12 @@ export function Dashboard() {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
         {/* ── Top navbar ── */}
-        <header className="shrink-0 bg-[#0d1426]/80 backdrop-blur border-b border-white/5 px-4 py-3">
+        <header className="shrink-0 bg-surface/80 backdrop-blur border-b border-line px-4 py-3">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-gray-400 hover:text-gray-200 p-1"
+              aria-label="Open navigation"
+              className="lg:hidden text-fg-muted hover:text-fg p-1"
             >
               <Menu size={20} />
             </button>
@@ -223,12 +231,13 @@ export function Dashboard() {
                   value={logInput}
                   onChange={(e) => setLogInput(e.target.value)}
                   placeholder="Paste a log line and press Enter to classify…"
-                  className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:bg-white/8 transition-colors"
+                  aria-label="Log line to classify"
+                  className="flex-1 min-w-0 bg-surface-2 border border-line-strong rounded-lg px-3 py-2 text-sm text-fg placeholder-fg-subtle focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
                 />
                 <button
                   type="submit"
                   disabled={classifying || !logInput.trim()}
-                  className="shrink-0 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition-colors flex items-center gap-2"
+                  className="shrink-0 px-4 py-2 rounded-lg bg-accent text-on-accent hover:bg-accent-strong shadow-card disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition-colors flex items-center gap-2"
                 >
                   {classifying ? (
                     <>
@@ -244,10 +253,14 @@ export function Dashboard() {
                 </button>
               </form>
             </div>
+
+            <div className="shrink-0 hidden md:block">
+              <ThemeToggle compact />
+            </div>
           </div>
 
           {error && (
-            <div className="mt-2 text-xs text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg px-3 py-2 flex items-center gap-2">
+            <div className="mt-2 text-xs text-danger bg-danger/10 border border-danger/30 rounded-lg px-3 py-2 flex items-center gap-2">
               <AlertTriangle size={12} />
               {error}
             </div>
@@ -255,15 +268,15 @@ export function Dashboard() {
         </header>
 
         {/* ── Mobile tab bar ── */}
-        <div className="lg:hidden flex border-b border-white/5 bg-[#0d1426]/50 shrink-0">
+        <div className="lg:hidden flex border-b border-line bg-surface/60 shrink-0">
           {(['events', 'analytics', 'docs'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2.5 text-xs font-medium capitalize transition-colors ${
                 activeTab === tab
-                  ? 'text-blue-400 border-b-2 border-blue-500'
-                  : 'text-gray-500 hover:text-gray-300'
+                  ? 'text-accent-text border-b-2 border-accent'
+                  : 'text-fg-subtle hover:text-fg-muted'
               }`}
             >
               {tab}
@@ -284,13 +297,13 @@ export function Dashboard() {
           `}>
             {/* Stats bar */}
             {events.length > 0 && (
-              <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-white/5 bg-[#0d1426]/30 overflow-x-auto">
-                <span className="text-xs text-gray-500 shrink-0">{filtered.length} events</span>
+              <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-line bg-surface/40 overflow-x-auto">
+                <span className="text-xs text-fg-subtle shrink-0">{filtered.length} events</span>
                 <div className="flex items-center gap-2">
                   {ALL_SEVERITIES.filter(s => severityCounts[s] > 0).map(s => (
                     <div key={s} className="flex items-center gap-1 shrink-0">
                       <SeverityBadge severity={s} size="sm" />
-                      <span className="text-xs text-gray-500">{severityCounts[s]}</span>
+                      <span className="text-xs text-fg-subtle">{severityCounts[s]}</span>
                     </div>
                   ))}
                 </div>
@@ -301,11 +314,11 @@ export function Dashboard() {
             <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
               {filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-20 px-6">
-                  <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
-                    <Shield size={28} className="text-gray-600" />
+                  <div className="w-16 h-16 rounded-2xl bg-fg/4 flex items-center justify-center mb-4">
+                    <Shield size={28} className="text-fg-subtle" />
                   </div>
-                  <p className="text-sm text-gray-400 font-medium">No events yet</p>
-                  <p className="text-xs text-gray-600 mt-1 max-w-xs">
+                  <p className="text-sm text-fg-muted font-medium">No events yet</p>
+                  <p className="text-xs text-fg-subtle mt-1 max-w-xs">
                     Paste a log line in the input above or upload a .log file to start classifying
                   </p>
                 </div>
@@ -325,12 +338,12 @@ export function Dashboard() {
           {/* Analytics tab (mobile) / always visible on desktop */}
           <div className={`
             ${activeTab !== 'analytics' ? 'hidden lg:block' : 'flex flex-col flex-1'}
-            lg:w-80 lg:shrink-0 lg:border-l lg:border-white/5 lg:overflow-y-auto
+            lg:w-80 lg:shrink-0 lg:border-l lg:border-line lg:overflow-y-auto
             ${selected ? 'lg:hidden xl:block' : ''}
           `}>
             <AnalyticsPanel />
             <div className="p-3">
-              <h3 className="mb-2 text-xs uppercase tracking-wide text-gray-500">MITRE ATT&CK Heatmap</h3>
+              <h3 className="mb-2 text-xs uppercase tracking-wide text-fg-subtle">MITRE ATT&CK Heatmap</h3>
               <MITREHeatmap events={events} />
             </div>
           </div>
@@ -340,20 +353,20 @@ export function Dashboard() {
             <>
               {/* Mobile overlay */}
               <div
-                className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm xl:hidden"
+                className="fixed inset-0 z-30 bg-overlay/50 backdrop-blur-sm xl:hidden"
                 onClick={() => { setSelected(null); setDetailOpen(false) }}
               />
               <div className={`
                 fixed bottom-0 left-0 right-0 z-40 max-h-[85vh] overflow-y-auto
-                bg-[#0d1426] border-t border-white/10 rounded-t-2xl
-                xl:static xl:max-h-none xl:rounded-none xl:border-t-0 xl:border-l xl:border-white/5
+                bg-surface border-t border-line-strong rounded-t-2xl
+                xl:static xl:max-h-none xl:rounded-none xl:border-t-0 xl:border-l xl:border-line
                 xl:w-96 xl:shrink-0 xl:overflow-y-auto
                 ${detailOpen ? 'translate-y-0' : 'translate-y-full'}
                 transition-transform duration-300 xl:translate-y-0
               `}>
                 {/* Mobile drag handle */}
                 <div className="xl:hidden flex justify-center pt-3 pb-1">
-                  <div className="w-10 h-1 rounded-full bg-white/20" />
+                  <div className="w-10 h-1 rounded-full bg-fg/20" />
                 </div>
 
                 <DetailPanel
@@ -384,7 +397,7 @@ function DetailPanel({ event, onClose }: { event: ClassifiedEvent; onClose: () =
         </div>
         <button
           onClick={onClose}
-          className="shrink-0 p-1.5 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-white/10 transition-colors"
+          className="shrink-0 p-1.5 rounded-lg text-fg-subtle hover:text-fg hover:bg-fg/10 transition-colors"
         >
           <X size={16} />
         </button>
@@ -392,22 +405,22 @@ function DetailPanel({ event, onClose }: { event: ClassifiedEvent; onClose: () =
 
       {/* Title + summary */}
       <div>
-        <h2 className="text-base font-semibold text-white leading-snug">{event.attack_type}</h2>
-        <p className="text-sm text-gray-400 mt-1.5 leading-relaxed">{event.summary}</p>
+        <h2 className="text-base font-semibold text-fg leading-snug">{event.attack_type}</h2>
+        <p className="text-sm text-fg-muted mt-1.5 leading-relaxed">{event.summary}</p>
       </div>
 
       {/* Confidence */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest">Confidence</p>
-          <span className="text-xs font-mono text-gray-400">{confidence}%</span>
+          <p className="text-[10px] text-fg-subtle uppercase tracking-widest">Confidence</p>
+          <span className="text-xs font-mono text-fg-muted">{confidence}%</span>
         </div>
-        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-fg/10 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all"
             style={{
               width: `${confidence}%`,
-              background: confidence >= 80 ? '#3B82F6' : confidence >= 60 ? '#F59E0B' : '#6B7280'
+              background: confidence >= 80 ? 'rgb(var(--accent))' : confidence >= 60 ? 'rgb(var(--warning))' : 'rgb(var(--fg-subtle))'
             }}
           />
         </div>
@@ -416,14 +429,14 @@ function DetailPanel({ event, onClose }: { event: ClassifiedEvent; onClose: () =
       {/* MITRE */}
       {event.mitre && event.mitre.tactic !== 'N/A' && (
         <div>
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">MITRE ATT&CK</p>
-          <div className="bg-white/5 rounded-xl p-3 space-y-2 border border-white/5">
+          <p className="text-[10px] text-fg-subtle uppercase tracking-widest mb-2">MITRE ATT&CK</p>
+          <div className="bg-fg/4 rounded-xl p-3 space-y-2 border border-line">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-xs text-gray-300">{event.mitre.tactic}</span>
+              <span className="text-xs text-fg-muted">{event.mitre.tactic}</span>
               <MITREBadge tactic="" technique={event.mitre.technique_id} />
             </div>
             {event.mitre.technique && (
-              <p className="text-xs text-gray-500">{event.mitre.technique}</p>
+              <p className="text-xs text-fg-subtle">{event.mitre.technique}</p>
             )}
           </div>
         </div>
@@ -432,24 +445,24 @@ function DetailPanel({ event, onClose }: { event: ClassifiedEvent; onClose: () =
       {/* IOCs */}
       {event.iocs?.length > 0 && (
         <div>
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Indicators of Compromise</p>
+          <p className="text-[10px] text-fg-subtle uppercase tracking-widest mb-2">Indicators of Compromise</p>
           <IOCList iocs={event.iocs} />
         </div>
       )}
 
       {/* Remediation collapsible */}
       {event.remediation && (
-        <div className="border border-white/5 rounded-xl overflow-hidden">
+        <div className="border border-line rounded-xl overflow-hidden">
           <button
             onClick={() => setRemOpen(o => !o)}
-            className="w-full flex items-center justify-between px-3 py-2.5 text-left bg-white/5 hover:bg-white/8 transition-colors"
+            className="w-full flex items-center justify-between px-3 py-2.5 text-left bg-fg/4 hover:bg-fg/8 transition-colors"
           >
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest">Recommended Action</p>
-            <ChevronDown size={14} className={`text-gray-500 transition-transform ${remOpen ? 'rotate-180' : ''}`} />
+            <p className="text-[10px] text-fg-subtle uppercase tracking-widest">Recommended Action</p>
+            <ChevronDown size={14} className={`text-fg-subtle transition-transform ${remOpen ? 'rotate-180' : ''}`} />
           </button>
           {remOpen && (
             <div className="px-3 py-3">
-              <p className="text-xs text-gray-300 leading-relaxed">{event.remediation}</p>
+              <p className="text-xs text-fg-muted leading-relaxed">{event.remediation}</p>
             </div>
           )}
         </div>
@@ -457,22 +470,22 @@ function DetailPanel({ event, onClose }: { event: ClassifiedEvent; onClose: () =
 
       {/* Raw log */}
       <div>
-        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Raw Log</p>
-        <pre className="text-xs font-mono text-gray-400 bg-black/30 rounded-xl p-3 overflow-x-auto whitespace-pre-wrap break-all border border-white/5">
+        <p className="text-[10px] text-fg-subtle uppercase tracking-widest mb-2">Raw Log</p>
+        <pre className="text-xs font-mono text-fg-muted bg-surface-2 rounded-xl p-3 overflow-x-auto whitespace-pre-wrap break-all border border-line">
           {event.event.raw}
         </pre>
       </div>
 
       {/* Meta */}
-      <div className="flex flex-wrap gap-2 text-[10px] text-gray-600">
-        <span className="bg-white/5 rounded px-2 py-1">Source: {event.event.source}</span>
-        {event.event.hostname && <span className="bg-white/5 rounded px-2 py-1">{event.event.hostname}</span>}
-        {event.event.app_name && <span className="bg-white/5 rounded px-2 py-1">{event.event.app_name}</span>}
+      <div className="flex flex-wrap gap-2 text-[10px] text-fg-subtle">
+        <span className="bg-fg/4 rounded px-2 py-1">Source: {event.event.source}</span>
+        {event.event.hostname && <span className="bg-fg/4 rounded px-2 py-1">{event.event.hostname}</span>}
+        {event.event.app_name && <span className="bg-fg/4 rounded px-2 py-1">{event.event.app_name}</span>}
       </div>
 
       {/* Similar events */}
       {event.summary && (
-        <div className="border-t border-white/5 pt-4">
+        <div className="border-t border-line pt-4">
           <SimilarEvents summary={event.summary} />
         </div>
       )}

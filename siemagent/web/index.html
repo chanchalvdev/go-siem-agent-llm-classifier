@@ -1,10 +1,24 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f6f8fb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0a0f1e" media="(prefers-color-scheme: dark)" />
     <title>SIEMAgent</title>
+    <script>
+      // Apply the saved theme before first paint to avoid a flash of the
+      // wrong theme. Mirrors readPreference() in src/theme/ThemeProvider.tsx.
+      (function () {
+        var pref = 'system'
+        try { pref = localStorage.getItem('siem-theme') || 'system' } catch (e) {}
+        var dark = pref === 'dark' ||
+          (pref !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        if (dark) document.documentElement.classList.add('dark')
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
