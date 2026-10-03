@@ -49,3 +49,19 @@ describe('RuleBadge', () => {
     expect(container).toBeEmptyDOMElement()
   })
 })
+
+describe('DetectionList threshold detections', () => {
+  it('shows how many events crossed the threshold and their group', () => {
+    render(
+      <DetectionList
+        detections={[{
+          rule_id: 'bf', title: 'SSH Brute Force', level: 'high',
+          count: 10, group: 'src_ip=203.0.113.7', threshold: 'count() by src_ip >= 10 in 5m',
+        }]}
+      />,
+    )
+    expect(screen.getByText('10 events')).toBeInTheDocument()
+    expect(screen.getByText('src_ip=203.0.113.7')).toBeInTheDocument()
+    expect(screen.getByText(/count\(\) by src_ip >= 10 in 5m/)).toBeInTheDocument()
+  })
+})

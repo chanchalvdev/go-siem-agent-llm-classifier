@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Shield, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown, BookOpen } from 'lucide-react'
+import { Shield, ShieldCheck, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown, BookOpen } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { classifyLog, listEvents } from '../lib/api'
 import type { ClassifiedEvent } from '../lib/api'
 import type { Severity } from '../styles/tokens'
@@ -13,6 +14,7 @@ import { SimilarEvents } from '../components/SimilarEvents'
 import { AnalyticsPanel } from '../components/AnalyticsPanel'
 import { MITREHeatmap } from '../components/MITREHeatmap'
 import { Docs } from './Docs'
+import { Rules } from './Rules'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { DetectionList } from '../components/DetectionList'
 
@@ -41,7 +43,20 @@ function useEventStore() {
   return { events, addEvent, addEvents, clear }
 }
 
-type Tab = 'events' | 'analytics' | 'docs'
+type Tab = 'events' | 'analytics' | 'rules' | 'docs'
+
+const NAV: { tab: Tab; label: string; Icon: LucideIcon }[] = [
+  { tab: 'events', label: 'Events', Icon: AlertTriangle },
+  { tab: 'analytics', label: 'Analytics', Icon: BarChart2 },
+  { tab: 'rules', label: 'Rules', Icon: ShieldCheck },
+  { tab: 'docs', label: 'Docs', Icon: BookOpen },
+]
+
+// Full-page tabs replace the events/analytics split view.
+const PAGE_TABS: Partial<Record<Tab, () => React.ReactElement>> = {
+  rules: Rules,
+  docs: Docs,
+}
 
 export function Dashboard() {
   const { events, addEvent, addEvents, clear } = useEventStore()
@@ -55,6 +70,7 @@ export function Dashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('events')
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const Page = PAGE_TABS[activeTab]
   const filtered = events.filter((e) => severityFilter.has(e.severity as Severity))
 
   const severityCounts = ALL_SEVERITIES.reduce((acc, s) => {
@@ -131,44 +147,26 @@ export function Dashboard() {
 
         {/* Nav */}
         <nav className="px-3 py-4 space-y-1">
-          <button
-            onClick={() => { setActiveTab('events'); setSidebarOpen(false) }}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-              activeTab === 'events'
-                ? 'bg-accent/15 text-accent-text font-medium'
-                : 'text-fg-muted hover:text-fg hover:bg-fg/4'
-            }`}
-          >
-            <AlertTriangle size={16} />
-            Events
-            {events.length > 0 && (
-              <span className="ml-auto text-xs bg-accent/15 text-accent-text px-1.5 py-0.5 rounded-full">
-                {events.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => { setActiveTab('analytics'); setSidebarOpen(false) }}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-              activeTab === 'analytics'
-                ? 'bg-accent/15 text-accent-text font-medium'
-                : 'text-fg-muted hover:text-fg hover:bg-fg/4'
-            }`}
-          >
-            <BarChart2 size={16} />
-            Analytics
-          </button>
-          <button
-            onClick={() => { setActiveTab('docs'); setSidebarOpen(false) }}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-              activeTab === 'docs'
-                ? 'bg-accent/15 text-accent-text font-medium'
-                : 'text-fg-muted hover:text-fg hover:bg-fg/4'
-            }`}
-          >
-            <BookOpen size={16} />
-            Docs
-          </button>
+          {NAV.map(({ tab, label, Icon }) => (
+            <button
+              key={tab}
+              onClick={() => { setActiveTab(tab); setSidebarOpen(false) }}
+              aria-current={activeTab === tab ? 'page' : undefined}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                activeTab === tab
+                  ? 'bg-accent/15 text-accent-text font-medium'
+                  : 'text-fg-muted hover:text-fg hover:bg-fg/4'
+              }`}
+            >
+              <Icon size={16} />
+              {label}
+              {tab === 'events' && events.length > 0 && (
+                <span className="ml-auto text-xs bg-accent/15 text-accent-text px-1.5 py-0.5 rounded-full">
+                  {events.length}
+                </span>
+              )}
+            </button>
+          ))}
         </nav>
 
         {/* Theme (header has it on md+; small screens reach it here) */}
@@ -270,7 +268,7 @@ export function Dashboard() {
 
         {/* ── Mobile tab bar ── */}
         <div className="lg:hidden flex border-b border-line bg-surface/60 shrink-0">
-          {(['events', 'analytics', 'docs'] as Tab[]).map((tab) => (
+          {NAV.map(({ tab }) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -286,8 +284,8 @@ export function Dashboard() {
         </div>
 
         {/* ── Body ── */}
-        {activeTab === 'docs' ? (
-          <Docs />
+        {Page ? (
+          <Page />
         ) : (
         <div className="flex flex-1 min-h-0 overflow-hidden">
 

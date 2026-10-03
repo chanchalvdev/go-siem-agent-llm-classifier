@@ -36,6 +36,12 @@ export interface Detection {
   title: string
   level: DetectionLevel
   tags?: string[]
+  /** Threshold rules: events that crossed the threshold. */
+  count?: number
+  /** Threshold rules: shared group-by value, e.g. "src_ip=203.0.113.7". */
+  group?: string
+  /** Threshold rules: e.g. "count() by src_ip >= 10 in 5m". */
+  threshold?: string
 }
 
 export interface ClassifiedEvent extends Classification {
@@ -56,6 +62,9 @@ export interface DetectionRule {
   tags?: string[]
   source: string
   hits: number
+  enabled: boolean
+  type: 'single' | 'threshold'
+  threshold?: string
 }
 
 export interface HealthStatus {
@@ -121,6 +130,11 @@ export async function listEvents(limit = 100): Promise<ClassifiedEvent[]> {
 
 export async function listDetectionRules(): Promise<DetectionRule[]> {
   const { data } = await client.get<DetectionRule[]>('/detections/rules')
+  return data
+}
+
+export async function setDetectionRuleEnabled(id: string, enabled: boolean): Promise<DetectionRule> {
+  const { data } = await client.patch<DetectionRule>(`/detections/rules/${encodeURIComponent(id)}`, { enabled })
   return data
 }
 
