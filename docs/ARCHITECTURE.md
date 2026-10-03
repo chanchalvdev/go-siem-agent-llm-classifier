@@ -177,7 +177,12 @@ sequenceDiagram
 | Qdrant | event embeddings (`siem_events`, 768-dim) | semantic search and the agent's similar-events tool are off |
 | Ollama | embeddings (`nomic-embed-text`); optional local chat LLM | no embeddings |
 
-Schemas are applied idempotently at start (`internal/*/schema.sql`).
+The schema is versioned: numbered SQL migrations in
+`internal/migrate/migrations/` run once each, in a transaction, recorded in
+`schema_migrations` with a checksum. The server applies pending ones on start
+(an advisory lock serialises replicas); `siemagent --migrate` applies them as a
+separate deploy step. A database migrated by a newer release is refused rather
+than run by an older binary.
 
 ## Security boundaries
 

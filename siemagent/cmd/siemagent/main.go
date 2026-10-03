@@ -38,11 +38,12 @@ var version = "dev"
 
 func main() {
 	var (
-		serve   = flag.Bool("serve", false, "Start HTTP server mode")
-		port    = flag.String("port", "", "HTTP server port (overrides $CONDUCTOR_PORT)")
-		workers = flag.Int("workers", 5, "Number of concurrent classifier goroutines")
-		outFile = flag.String("output", "", "Write JSON results to file instead of stdout")
-		showVer = flag.Bool("version", false, "Print the version and exit")
+		serve     = flag.Bool("serve", false, "Start HTTP server mode")
+		port      = flag.String("port", "", "HTTP server port (overrides $CONDUCTOR_PORT)")
+		workers   = flag.Int("workers", 5, "Number of concurrent classifier goroutines")
+		outFile   = flag.String("output", "", "Write JSON results to file instead of stdout")
+		showVer   = flag.Bool("version", false, "Print the version and exit")
+		migrateDB = flag.Bool("migrate", false, "Apply pending database migrations to $POSTGRES_DSN and exit")
 	)
 	flag.Parse()
 
@@ -52,6 +53,13 @@ func main() {
 	}
 
 	cfg := config.Load()
+	if *migrateDB {
+		if err := runMigrations(cfg.PostgresDSN); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *port != "" {
 		cfg.Port = *port
 	}

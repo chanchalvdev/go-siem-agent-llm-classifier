@@ -51,6 +51,17 @@ A pull request is ready when:
   metrics live in `internal/metrics`.
 - Web server state goes through TanStack Query; no `console.log` in components.
 - Docs and `.env.example` are updated when you add configuration.
+- Database changes are a new migration (see below), never an edit to one
+  that has shipped.
+
+### Database migrations
+
+The schema lives in `siemagent/internal/migrate/migrations/`, one numbered
+file per change (`0002_add_retention.sql`). To change it, add the next number;
+the server applies pending migrations on start (or run
+`siemagent --migrate`). A migration that has already been released must not
+be edited: start-up refuses a database whose recorded checksum no longer
+matches.
 
 ## Pull requests
 
