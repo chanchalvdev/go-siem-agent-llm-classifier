@@ -58,11 +58,17 @@ type Server struct {
 	agent      *agentRuntime // nil when Phase 3 agent disabled
 }
 
+// maxConcurrentInvestigations caps agent runs in flight. Bulk ingest and
+// syslog can produce bursts of P1/P2 events; without a cap each would start
+// its own multi-call LLM investigation at once.
+const maxConcurrentInvestigations = 4
+
 // agentRuntime bundles the pieces the P1/P2 auto-trigger needs.
 type agentRuntime struct {
 	client   *openai.Client
 	model    string
 	registry *agent.Registry
+	slots    chan struct{} // semaphore of maxConcurrentInvestigations
 }
 
 // ServerOption lets callers attach optional Phase 2/3 components.
@@ -85,7 +91,10 @@ func WithSearch(s Searcher, e Embedder) ServerOption {
 func WithAgent(hub *Hub, client *openai.Client, model string, reg *agent.Registry) ServerOption {
 	return func(srv *Server) {
 		srv.hub = hub
-		srv.agent = &agentRuntime{client: client, model: model, registry: reg}
+		srv.agent = &agentRuntime{
+			client: client, model: model, registry: reg,
+			slots: make(chan struct{}, maxConcurrentInvestigations),
+		}
 	}
 }
 
@@ -350,9 +359,18 @@ func (s *Server) maybeInvestigate(ev models.ClassifiedEvent) {
 	if ev.Severity != models.SeverityP1 && ev.Severity != models.SeverityP2 {
 		return
 	}
+	select {
+	case s.agent.slots <- struct{}{}:
+	default:
+		metrics.InvestigationsSkippedTotal.Inc()
+		slog.Warn("investigation skipped: too many in flight", "component", "api",
+			"limit", maxConcurrentInvestigations, "attack_type", ev.AttackType)
+		return
+	}
 	incidentID := uuid()
 	eventID := ev.ProcessedAt.Format(time.RFC3339Nano)
 	go func() {
+		defer func() { <-s.agent.slots }()
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		err := agent.RunIncidentStream(ctx, s.agent.client, s.agent.model, s.agent.registry, ev,

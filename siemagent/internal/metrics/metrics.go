@@ -51,6 +51,13 @@ var (
 		[]string{"transport"},
 	)
 
+	InvestigationsSkippedTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "investigations_skipped_total",
+			Help: "P1/P2 events not investigated because the concurrent investigation limit was reached.",
+		},
+	)
+
 	IngestDroppedTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "ingest_dropped_total",
