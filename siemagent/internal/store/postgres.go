@@ -2,18 +2,15 @@ package store
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/chverma/siemagent/internal/migrate"
 	"github.com/chverma/siemagent/internal/models"
 )
-
-//go:embed schema.sql
-var schemaSQL string
 
 // Postgres stores every classified event durably. The full event is kept as
 // JSONB; the columns analytics filter and group on are stored alongside it.
@@ -21,7 +18,7 @@ type Postgres struct {
 	pool *pgxpool.Pool
 }
 
-// OpenPostgres connects, verifies the connection and applies the schema.
+// OpenPostgres connects, verifies the connection and applies pending migrations.
 func OpenPostgres(ctx context.Context, dsn string) (*Postgres, error) {
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
@@ -31,7 +28,7 @@ func OpenPostgres(ctx context.Context, dsn string) (*Postgres, error) {
 		pool.Close()
 		return nil, fmt.Errorf("postgres connect: %w", err)
 	}
-	if _, err := pool.Exec(ctx, schemaSQL); err != nil {
+	if _, err := migrate.Up(ctx, pool); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("postgres schema: %w", err)
 	}

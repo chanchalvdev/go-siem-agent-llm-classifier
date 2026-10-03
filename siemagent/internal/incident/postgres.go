@@ -2,7 +2,6 @@ package incident
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,19 +10,18 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-)
 
-//go:embed schema.sql
-var schemaSQL string
+	"github.com/chverma/siemagent/internal/migrate"
+)
 
 // Postgres stores incidents in the same database as events.
 type Postgres struct {
 	pool *pgxpool.Pool
 }
 
-// NewPostgres applies the incident schema and returns the store.
+// NewPostgres migrates the database and returns the store.
 func NewPostgres(ctx context.Context, pool *pgxpool.Pool) (*Postgres, error) {
-	if _, err := pool.Exec(ctx, schemaSQL); err != nil {
+	if _, err := migrate.Up(ctx, pool); err != nil {
 		return nil, fmt.Errorf("incident schema: %w", err)
 	}
 	return &Postgres{pool: pool}, nil

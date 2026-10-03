@@ -210,3 +210,4 @@ make seed                # POST 10 sample events to /classify
 | 2026-10 | Incidents correlate on shared IP/user/host within a window | One story per attack; one AI investigation per incident instead of per alert |
 | 2026-10 | Response actions need approval by default; containment goes through one webhook | Humans approve actions; integrate with existing automation instead of shipping connectors |
 | 2026-10 | Local accounts (bcrypt), hashed session tokens, SameSite=Strict + X-Requested-With | Roles and audit before SSO; CSRF-safe cookies without a token round-trip |
+| 2026-10 | Versioned SQL migrations in `internal/migrate`, no third-party tool | Embedded, checksummed, advisory-locked; edited or newer-than-binary schemas fail start-up |

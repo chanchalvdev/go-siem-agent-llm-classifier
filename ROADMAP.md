@@ -194,7 +194,7 @@ One connector per release keeps quality high. Good first targets:
       preloaded, so a new user sees an investigated incident within minutes
 - [ ] **Container images** published on every release; Helm chart for Kubernetes
 - [ ] **Versioned releases** with changelog and signed binaries
-- [ ] **Versioned schema migrations** (replace the start-up schema file)
+- [x] **Versioned schema migrations** — numbered, checksummed, applied once under an advisory lock; `siemagent --migrate`
 - [ ] **OpenTelemetry tracing** across ingest → classify → investigate
 - [ ] **Documentation site** — install, configuration, writing rules,
       writing connectors, API reference
