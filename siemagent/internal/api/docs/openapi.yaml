@@ -39,6 +39,8 @@ tags:
     description: Stored event history
   - name: Detection
     description: Sigma detection rules
+  - name: Incidents
+    description: Correlated alerts and case management
   - name: Analytics
     description: Event analytics
   - name: Observability
@@ -491,6 +493,110 @@ paths:
         "400": {description: "Body is not {\"enabled\": true|false}"}
         "404": {description: Unknown rule, or detection is off}
 
+  # ── Incidents ─────────────────────────────────────────────────────────────────
+
+  /api/incidents:
+    get:
+      tags: [Incidents]
+      summary: List incidents
+      description: Most recently active first. Alerts sharing an IP, user or host within INCIDENT_WINDOW are grouped into one incident.
+      operationId: listIncidents
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [new, investigating, resolved]}}
+        - {name: severity, in: query, schema: {type: string, enum: [P1, P2, P3, P4, P5]}}
+        - {name: assignee, in: query, schema: {type: string}}
+        - name: entity
+          in: query
+          description: Only incidents involving this entity
+          schema: {type: string, example: "ip:203.0.113.7"}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 500, default: 100}}
+      responses:
+        "200":
+          description: Incidents
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/Incident"}
+        "400": {description: Invalid entity or limit}
+        "404": {description: Incidents are not enabled}
+
+  /api/incidents/stats:
+    get:
+      tags: [Incidents]
+      summary: Incident queue metrics
+      operationId: getIncidentStats
+      responses:
+        "200":
+          description: Counts and mean time to resolve
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/IncidentStats"}
+
+  /api/incidents/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string, example: INC-2EA4C98D}}
+    get:
+      tags: [Incidents]
+      summary: Incident with alerts and history
+      operationId: getIncident
+      responses:
+        "200":
+          description: The incident
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/IncidentDetail"}
+        "404": {description: Unknown incident}
+    patch:
+      tags: [Incidents]
+      summary: Update status, assignee, severity or resolution
+      description: Every changed field is recorded in the incident history. A resolution needs status resolved; reopening clears it.
+      operationId: updateIncident
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: {type: string, enum: [new, investigating, resolved]}
+                assignee: {type: string, maxLength: 100}
+                severity: {type: string, enum: [P1, P2, P3, P4, P5]}
+                resolution: {type: string, enum: ["", true_positive, false_positive, benign, duplicate]}
+      responses:
+        "200":
+          description: The updated incident
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Incident"}
+        "400": {description: Invalid change}
+        "404": {description: Unknown incident}
+
+  /api/incidents/{id}/comments:
+    post:
+      tags: [Incidents]
+      summary: Add a comment
+      operationId: addIncidentComment
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: {type: string, maxLength: 5000}
+      responses:
+        "201":
+          description: The recorded comment
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/IncidentActivity"}
+        "400": {description: Empty or too long}
+        "404": {description: Unknown incident}
+
   # ── Analytics ─────────────────────────────────────────────────────────────────
 
   /api/analytics/summary:
@@ -579,6 +685,93 @@ paths:
 
 components:
   schemas:
+    Entity:
+      type: object
+      properties:
+        kind: {type: string, enum: [ip, user, host, signature]}
+        value: {type: string}
+
+    Incident:
+      type: object
+      properties:
+        id: {type: string, example: INC-2EA4C98D}
+        title: {type: string, example: "SSH Brute Force from 185.220.101.77"}
+        severity: {type: string, enum: [P1, P2, P3, P4, P5]}
+        status: {type: string, enum: [new, investigating, resolved]}
+        resolution: {type: string, enum: [true_positive, false_positive, benign, duplicate]}
+        assignee: {type: string}
+        entities:
+          type: array
+          items: {$ref: "#/components/schemas/Entity"}
+        tactics:
+          type: array
+          items: {type: string}
+          description: ATT&CK tactics reached, in matrix order
+        techniques:
+          type: array
+          items: {type: string}
+        alert_count: {type: integer}
+        first_seen: {type: string, format: date-time}
+        last_seen: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        resolved_at: {type: string, format: date-time}
+
+    IncidentAlert:
+      type: object
+      properties:
+        id: {type: integer}
+        incident_id: {type: string}
+        at: {type: string, format: date-time}
+        severity: {type: string}
+        attack_type: {type: string}
+        summary: {type: string}
+        tactic: {type: string}
+        technique_id: {type: string}
+        rules:
+          type: array
+          items: {type: string}
+        hostname: {type: string}
+        raw: {type: string}
+        entities:
+          type: array
+          items: {$ref: "#/components/schemas/Entity"}
+
+    IncidentActivity:
+      type: object
+      properties:
+        id: {type: integer}
+        incident_id: {type: string}
+        at: {type: string, format: date-time}
+        actor: {type: string, example: analyst}
+        kind: {type: string, enum: [created, escalated, status, assignee, severity, resolution, comment, investigation]}
+        body: {type: string}
+
+    IncidentDetail:
+      allOf:
+        - $ref: "#/components/schemas/Incident"
+        - type: object
+          properties:
+            alerts:
+              type: array
+              items: {$ref: "#/components/schemas/IncidentAlert"}
+            activity:
+              type: array
+              items: {$ref: "#/components/schemas/IncidentActivity"}
+
+    IncidentStats:
+      type: object
+      properties:
+        open: {type: integer}
+        by_status:
+          type: object
+          additionalProperties: {type: integer}
+        open_by_severity:
+          type: object
+          additionalProperties: {type: integer}
+        resolved: {type: integer}
+        false_positive: {type: integer}
+        mttr_seconds: {type: number, description: Mean time from creation to resolution}
     Severity:
       type: string
       enum: [P1, P2, P3, P4, P5]

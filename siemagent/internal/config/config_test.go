@@ -2,7 +2,9 @@ package config
 
 import (
 	"slices"
+	"strings"
 	"testing"
+	"time"
 )
 
 func clearLLMEnv(t *testing.T) {
@@ -12,6 +14,7 @@ func clearLLMEnv(t *testing.T) {
 		"KIMCHI_API_KEY", "KIMCHI_BASE_URL", "OPENAI_API_KEY", "SIEM_MODEL",
 		"OLLAMA_URL", "OLLAMA_MODEL", "SIEM_API_KEYS", "POSTGRES_DSN",
 		"SYSLOG_UDP_ADDR", "SYSLOG_TCP_ADDR", "DETECTION_MODE", "SIGMA_RULES_DIR",
+		"INCIDENT_WINDOW", "INCIDENT_MIN_SEVERITY",
 	} {
 		t.Setenv(k, "")
 	}
@@ -149,5 +152,28 @@ func TestLoadPlatformSettings(t *testing.T) {
 	t.Setenv("SIEM_API_KEYS", "")
 	if Load().AuthEnabled() {
 		t.Fatal("auth should be off without keys")
+	}
+}
+
+func TestIncidentSettings(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("GEMINI_API_KEY", "k")
+	w, sev, err := Load().Incidents()
+	if err != nil || w != time.Hour || sev != "P3" {
+		t.Fatalf("defaults: %v %s %v", w, sev, err)
+	}
+	t.Setenv("INCIDENT_WINDOW", "30m")
+	t.Setenv("INCIDENT_MIN_SEVERITY", " p2 ")
+	w, sev, err = Load().Incidents()
+	if err != nil || w != 30*time.Minute || sev != "P2" {
+		t.Fatalf("overrides: %v %s %v", w, sev, err)
+	}
+	for k, v := range map[string]string{"INCIDENT_WINDOW": "10s", "INCIDENT_MIN_SEVERITY": "P0"} {
+		t.Run(k, func(t *testing.T) {
+			t.Setenv(k, v)
+			if err := Load().Validate(); err == nil || !strings.Contains(err.Error(), k) {
+				t.Fatalf("want %s error, got %v", k, err)
+			}
+		})
 	}
 }

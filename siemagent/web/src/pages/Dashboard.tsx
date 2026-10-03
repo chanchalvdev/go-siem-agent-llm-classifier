@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Shield, ShieldCheck, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown, BookOpen } from 'lucide-react'
+import { Shield, ShieldCheck, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown, BookOpen, Siren } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { classifyLog, listEvents } from '../lib/api'
 import type { ClassifiedEvent } from '../lib/api'
@@ -15,6 +15,7 @@ import { AnalyticsPanel } from '../components/AnalyticsPanel'
 import { MITREHeatmap } from '../components/MITREHeatmap'
 import { Docs } from './Docs'
 import { Rules } from './Rules'
+import { Incidents } from './Incidents'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { DetectionList } from '../components/DetectionList'
 
@@ -43,10 +44,11 @@ function useEventStore() {
   return { events, addEvent, addEvents, clear }
 }
 
-type Tab = 'events' | 'analytics' | 'rules' | 'docs'
+type Tab = 'events' | 'incidents' | 'analytics' | 'rules' | 'docs'
 
 const NAV: { tab: Tab; label: string; Icon: LucideIcon }[] = [
   { tab: 'events', label: 'Events', Icon: AlertTriangle },
+  { tab: 'incidents', label: 'Incidents', Icon: Siren },
   { tab: 'analytics', label: 'Analytics', Icon: BarChart2 },
   { tab: 'rules', label: 'Rules', Icon: ShieldCheck },
   { tab: 'docs', label: 'Docs', Icon: BookOpen },
@@ -54,6 +56,7 @@ const NAV: { tab: Tab; label: string; Icon: LucideIcon }[] = [
 
 // Full-page tabs replace the events/analytics split view.
 const PAGE_TABS: Partial<Record<Tab, () => React.ReactElement>> = {
+  incidents: Incidents,
   rules: Rules,
   docs: Docs,
 }

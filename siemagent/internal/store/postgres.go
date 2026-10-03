@@ -40,6 +40,10 @@ func OpenPostgres(ctx context.Context, dsn string) (*Postgres, error) {
 
 func (p *Postgres) Close() { p.pool.Close() }
 
+// Pool exposes the connection pool so other packages (incidents) can keep
+// their tables in the same database.
+func (p *Postgres) Pool() *pgxpool.Pool { return p.pool }
+
 func (p *Postgres) Ping(ctx context.Context) error { return p.pool.Ping(ctx) }
 
 func (p *Postgres) Add(ctx context.Context, ev models.ClassifiedEvent) error {

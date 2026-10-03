@@ -29,6 +29,29 @@ var (
 		},
 	)
 
+	IncidentsCreatedTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "incidents_created_total",
+			Help: "Incidents opened by correlation, by initial severity.",
+		},
+		[]string{"severity"},
+	)
+
+	IncidentAlertsCorrelatedTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "incident_alerts_correlated_total",
+			Help: "Alerts that joined an existing open incident instead of opening a new one.",
+		},
+	)
+
+	IncidentsResolvedTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "incidents_resolved_total",
+			Help: "Incidents resolved by analysts, by resolution.",
+		},
+		[]string{"resolution"},
+	)
+
 	DetectionGroupsDroppedTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "detection_aggregation_groups_dropped_total",

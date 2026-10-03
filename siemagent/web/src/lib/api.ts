@@ -240,3 +240,125 @@ export function classifyLogStream(
 
   return () => controller.abort()
 }
+
+// ── Incidents ─────────────────────────────────────────────────────────────────
+
+export type IncidentStatus = 'new' | 'investigating' | 'resolved'
+export type IncidentResolution = '' | 'true_positive' | 'false_positive' | 'benign' | 'duplicate'
+export type EntityKind = 'ip' | 'user' | 'host' | 'signature'
+
+export interface Entity {
+  kind: EntityKind
+  value: string
+}
+
+export interface Incident {
+  id: string
+  title: string
+  severity: Severity
+  status: IncidentStatus
+  resolution?: IncidentResolution
+  assignee?: string
+  entities: Entity[]
+  /** ATT&CK tactics reached, in matrix order. */
+  tactics: string[]
+  techniques: string[]
+  alert_count: number
+  first_seen: string
+  last_seen: string
+  created_at: string
+  updated_at: string
+  resolved_at?: string
+}
+
+export interface IncidentAlert {
+  id: number
+  incident_id: string
+  at: string
+  severity: Severity
+  attack_type: string
+  summary: string
+  tactic?: string
+  technique_id?: string
+  rules?: string[]
+  hostname?: string
+  raw: string
+  entities: Entity[]
+}
+
+export type ActivityKind =
+  | 'created' | 'status' | 'assignee' | 'severity' | 'comment' | 'escalated' | 'resolution' | 'investigation'
+
+export interface IncidentActivity {
+  id: number
+  incident_id: string
+  at: string
+  actor: string
+  kind: ActivityKind
+  body: string
+}
+
+export interface IncidentDetail extends Incident {
+  alerts: IncidentAlert[]
+  activity: IncidentActivity[]
+}
+
+export interface IncidentStats {
+  open: number
+  by_status: Partial<Record<IncidentStatus, number>>
+  open_by_severity: Partial<Record<Severity, number>>
+  resolved: number
+  false_positive: number
+  mttr_seconds: number
+}
+
+export interface IncidentFilter {
+  status?: IncidentStatus
+  severity?: Severity
+  assignee?: string
+  /** "ip:1.2.3.4", "user:alice" or "host:web01" */
+  entity?: string
+  limit?: number
+}
+
+export interface IncidentUpdate {
+  status?: IncidentStatus
+  resolution?: IncidentResolution
+  assignee?: string
+  severity?: Severity
+}
+
+export async function listIncidents(filter: IncidentFilter = {}): Promise<Incident[]> {
+  const params = Object.fromEntries(Object.entries(filter).filter(([, v]) => v !== undefined && v !== ''))
+  const { data } = await client.get<Incident[]>('/incidents', { params })
+  return data
+}
+
+export async function getIncident(id: string): Promise<IncidentDetail> {
+  const { data } = await client.get<IncidentDetail>(`/incidents/${encodeURIComponent(id)}`)
+  return data
+}
+
+export async function getIncidentStats(): Promise<IncidentStats> {
+  const { data } = await client.get<IncidentStats>('/incidents/stats')
+  return data
+}
+
+export async function updateIncident(id: string, update: IncidentUpdate): Promise<Incident> {
+  const { data } = await client.patch<Incident>(`/incidents/${encodeURIComponent(id)}`, update)
+  return data
+}
+
+export async function addIncidentComment(id: string, body: string): Promise<IncidentActivity> {
+  const { data } = await client.post<IncidentActivity>(`/incidents/${encodeURIComponent(id)}/comments`, { body })
+  return data
+}
+
+// apiError extracts the server's error message from a failed request.
+export function apiError(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const msg = (err.response?.data as { error?: string } | undefined)?.error
+    if (msg) return msg
+  }
+  return err instanceof Error ? err.message : String(err)
+}
