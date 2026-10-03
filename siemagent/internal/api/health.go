@@ -39,8 +39,9 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 	checks := make(map[string]string)
 	allOK := true
 
-	// Check LLM reachability
-	llmCtx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	// Check LLM reachability. Reasoning models (e.g. Gemini 3.x) take ~4s
+	// even for a 1-token reply, so allow headroom.
+	llmCtx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 	if err := s.classifier.Ping(llmCtx); err != nil {
 		checks["llm"] = "error: " + err.Error()

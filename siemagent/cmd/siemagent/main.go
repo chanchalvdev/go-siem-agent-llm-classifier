@@ -45,10 +45,11 @@ func main() {
 	}
 
 	if cfg.APIKey == "" {
-		fmt.Fprintln(os.Stderr, "error: set KIMCHI_API_KEY (or OPENAI_API_KEY) before running")
+		fmt.Fprintln(os.Stderr, "error: set GEMINI_API_KEY (or KIMCHI_API_KEY / OPENAI_API_KEY) before running")
 		os.Exit(1)
 	}
 
+	slog.Info("LLM provider configured", "component", "main", "provider", cfg.Provider, "model", cfg.ModelName)
 	cls := classifier.New(cfg.APIKey, cfg.BaseURL, cfg.ModelName)
 
 	if *serve {

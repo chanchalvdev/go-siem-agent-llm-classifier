@@ -2,8 +2,18 @@ package config
 
 import "os"
 
+// Gemini exposes an OpenAI-compatible endpoint, so the existing go-openai
+// client works against it unchanged.
+const (
+	geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+	geminiModel   = "gemini-3.8-flash"
+	kimchiBaseURL = "https://api.kimchi.ai/v1"
+	kimchiModel   = "kimi-k2-5"
+)
+
 type Config struct {
-	BaseURL       string // Kimchi Inference OpenAI-compatible endpoint
+	Provider      string // "gemini" or "kimchi" (any OpenAI-compatible endpoint)
+	BaseURL       string // OpenAI-compatible endpoint
 	APIKey        string
 	ModelName     string
 	Workers       int
@@ -14,19 +24,29 @@ type Config struct {
 }
 
 func Load() Config {
-	baseURL := os.Getenv("KIMCHI_BASE_URL")
-	if baseURL == "" {
-		baseURL = "https://api.kimchi.ai/v1"
-	}
-
-	apiKey := os.Getenv("KIMCHI_API_KEY")
+	// GEMINI_API_KEY takes precedence; otherwise fall back to Kimchi/OpenAI.
+	// Each provider reads its own model variable so a leftover Kimchi
+	// SIEM_MODEL is never sent to Gemini.
+	provider := "gemini"
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	baseURL := os.Getenv("GEMINI_BASE_URL")
+	model := os.Getenv("GEMINI_MODEL")
+	defaultBaseURL, defaultModel := geminiBaseURL, geminiModel
 	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
+		provider = "kimchi"
+		apiKey = os.Getenv("KIMCHI_API_KEY")
+		if apiKey == "" {
+			apiKey = os.Getenv("OPENAI_API_KEY")
+		}
+		baseURL = os.Getenv("KIMCHI_BASE_URL")
+		model = os.Getenv("SIEM_MODEL")
+		defaultBaseURL, defaultModel = kimchiBaseURL, kimchiModel
 	}
-
-	model := os.Getenv("SIEM_MODEL")
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
 	if model == "" {
-		model = "kimi-k2-5"
+		model = defaultModel
 	}
 
 	port := os.Getenv("CONDUCTOR_PORT")
@@ -50,6 +70,7 @@ func Load() Config {
 	}
 
 	return Config{
+		Provider:      provider,
 		BaseURL:       baseURL,
 		APIKey:        apiKey,
 		ModelName:     model,
