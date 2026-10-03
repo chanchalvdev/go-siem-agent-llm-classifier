@@ -17,7 +17,8 @@ Where it is heading — detection rules, incident correlation, automated respons
 Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Event, etc.) and the agent:
 
 1. **Parses** the raw log into structured fields (host, app, timestamp, message)
-2. **Classifies** it via LLM — determines attack type, severity (P1–P5), confidence score
+2. **Detects** known attacks with Sigma rules — instantly, with no LLM call
+3. **Classifies** everything else via LLM — attack type, severity (P1–P5), confidence score
 3. **Maps** to MITRE ATT&CK tactic + technique (e.g. T1110 Brute Force)
 4. **Extracts IOCs** — IPs, domains, file hashes with VirusTotal / AbuseIPDB links
 5. **Generates remediation** steps tailored to the specific threat
@@ -32,6 +33,7 @@ Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Ev
 ## Features
 
 - **AI classification** — Gemini, a fully local model via Ollama, or any OpenAI-compatible API, with structured JSON output
+- **Sigma detection rules** — a built-in rule pack plus any Sigma rules you add (e.g. SigmaHQ); rule matches skip the LLM, cutting cost and latency ([docs/DETECTION.md](docs/DETECTION.md))
 - **Syslog ingestion** — UDP/TCP listener for rsyslog, syslog-ng and network devices, with back-pressure and drop metrics
 - **Durable storage** — PostgreSQL event history with an in-memory fallback for quick local runs
 - **API key authentication** — protects the API, WebSocket stream and metrics
@@ -120,7 +122,9 @@ go-siem-agent-llm-classifier/
 │   │   ├── api/              # HTTP handlers, router, WS hub + sanitizer, middleware
 │   │   ├── classifier/       # LLM-based event classifier
 │   │   ├── config/           # Environment config loader + provider selection
+│   │   ├── detection/        # Sigma rule engine + built-in rules (rules/*.yml)
 │   │   ├── metrics/          # Prometheus metrics
+│   │   ├── mitre/            # Offline MITRE ATT&CK subset
 │   │   ├── ingest/           # Syslog UDP/TCP listener
 │   │   ├── models/           # Shared data models
 │   │   ├── parser/           # Syslog & JSON log parsers
@@ -256,6 +260,8 @@ Dashboard available at **http://localhost:5173**
 | `SIEM_MODEL` | Model for the OpenAI-compatible endpoint | `kimi-k2-5` |
 | `SIEM_API_KEYS` | Comma-separated API keys; enables auth when set | empty (auth off) |
 | `POSTGRES_DSN` | Postgres connection string; empty keeps events in memory | see `.env.example` |
+| `DETECTION_MODE` | `rules-first`, `enrich` or `off` ([docs/DETECTION.md](docs/DETECTION.md)) | `rules-first` |
+| `SIGMA_RULES_DIR` | Extra Sigma rules folder, searched recursively | — |
 | `SYSLOG_UDP_ADDR` / `SYSLOG_TCP_ADDR` | Syslog listener addresses, e.g. `:5514` | disabled |
 | `CONDUCTOR_PORT` | HTTP server port | `8080` |
 | `ALLOWED_ORIGIN` | CORS origin | `http://localhost:5173` |
@@ -352,6 +358,10 @@ curl -X POST http://localhost:8080/api/ingest \
 ### `GET /api/events?limit=100`
 
 Most recent stored events, newest first (`limit` 1–500, default 100). With Postgres this includes history from before the last restart.
+
+### `GET /api/detections/rules`
+
+Loaded Sigma rules with level, tags, source and match count since start.
 
 ### `GET /api/search?q=brute+force&limit=10`
 
