@@ -2,7 +2,7 @@
 # Dashboard image: static Vite build served by unprivileged nginx, which also
 # proxies /api, /ws, /health and /docs to the API container.
 
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci
