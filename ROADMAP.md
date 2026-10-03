@@ -145,7 +145,8 @@ Required before teams or MSSPs can share one deployment. See [docs/USERS.md](doc
 - [x] **Audit log** — logins and every change: who, what, when, from where
 - [ ] **Multi-tenancy** — isolated data per tenant (Postgres schemas, Qdrant
       collections) for managed security providers
-- [ ] **Retention policies** — per-tenant TTLs and archival to object storage
+- [x] **Retention policies** — TTLs for events, resolved incidents and audit log
+- [ ] **Per-tenant retention and archival** to object storage
 
 ## Phase 10 — Advanced analytics and hunting
 

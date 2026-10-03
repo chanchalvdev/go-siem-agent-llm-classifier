@@ -28,6 +28,7 @@ import (
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
 	"github.com/chverma/siemagent/internal/response"
+	"github.com/chverma/siemagent/internal/retention"
 	"github.com/chverma/siemagent/internal/store"
 )
 
@@ -64,6 +65,7 @@ type Server struct {
 	incidents  *incident.Service // nil when correlation is off
 	response   *response.Engine  // nil when playbooks are off
 	users      *auth.Service     // nil when user accounts are off
+	retention  *retention.Runner // nil without Postgres
 }
 
 // maxConcurrentInvestigations caps agent runs in flight. Bulk ingest and
@@ -204,6 +206,7 @@ func (s *Server) buildRouter() *chi.Mux {
 					r.Post("/users", s.handleCreateUser)
 					r.Patch("/users/{id}", s.handleUpdateUser)
 					r.Get("/audit", s.handleListAudit)
+					r.Get("/retention", s.handleRetention)
 				})
 			})
 

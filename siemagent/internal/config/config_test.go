@@ -219,3 +219,27 @@ func TestAccountSettings(t *testing.T) {
 		t.Fatalf("short ttl: %v", err)
 	}
 }
+
+func TestRetentionSettings(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("GEMINI_API_KEY", "k")
+	r, err := Load().Retention()
+	if err != nil || r != (Retention{}) {
+		t.Fatalf("default must keep everything: %+v %v", r, err)
+	}
+	t.Setenv("RETENTION_EVENTS_DAYS", " 30 ")
+	t.Setenv("RETENTION_INCIDENTS_DAYS", "365")
+	t.Setenv("RETENTION_AUDIT_DAYS", "0")
+	r, err = Load().Retention()
+	if err != nil || r.Events != 30*24*time.Hour || r.Incidents != 365*24*time.Hour || r.Audit != 0 {
+		t.Fatalf("overrides: %+v %v", r, err)
+	}
+	for _, v := range []string{"-1", "7d", "3651", "1.5"} {
+		t.Run(v, func(t *testing.T) {
+			t.Setenv("RETENTION_EVENTS_DAYS", v)
+			if err := Load().Validate(); err == nil || !strings.Contains(err.Error(), "RETENTION_EVENTS_DAYS") {
+				t.Fatalf("want RETENTION_EVENTS_DAYS error, got %v", err)
+			}
+		})
+	}
+}

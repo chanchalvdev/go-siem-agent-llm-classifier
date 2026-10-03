@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -55,6 +56,19 @@ type Config struct {
 	AdminPassword string
 	SessionTTLRaw string // e.g. "12h"
 	CookieSecure  bool   // mark the session cookie Secure (behind a TLS proxy)
+
+	// Data retention in days; empty or 0 keeps data forever. Raw values;
+	// Validate checks them.
+	RetentionEventsRaw    string // RETENTION_EVENTS_DAYS
+	RetentionIncidentsRaw string // RETENTION_INCIDENTS_DAYS (resolved incidents)
+	RetentionAuditRaw     string // RETENTION_AUDIT_DAYS
+}
+
+// Retention is how long each kind of data is kept. Zero keeps it forever.
+type Retention struct {
+	Events    time.Duration
+	Incidents time.Duration
+	Audit     time.Duration
 }
 
 func Load() Config {
@@ -84,6 +98,10 @@ func Load() Config {
 		AdminPassword: os.Getenv("SIEM_ADMIN_PASSWORD"),
 		SessionTTLRaw: strings.TrimSpace(os.Getenv("SIEM_SESSION_TTL")),
 		CookieSecure:  parseBool(os.Getenv("SIEM_COOKIE_SECURE")),
+
+		RetentionEventsRaw:    strings.TrimSpace(os.Getenv("RETENTION_EVENTS_DAYS")),
+		RetentionIncidentsRaw: strings.TrimSpace(os.Getenv("RETENTION_INCIDENTS_DAYS")),
+		RetentionAuditRaw:     strings.TrimSpace(os.Getenv("RETENTION_AUDIT_DAYS")),
 	}
 
 	cfg.Provider = strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
@@ -155,12 +173,42 @@ func (c Config) SessionTTL() (time.Duration, error) {
 	return d, nil
 }
 
+// maxRetentionDays bounds retention settings (10 years).
+const maxRetentionDays = 3650
+
+// Retention returns the data retention policy.
+func (c Config) Retention() (Retention, error) {
+	var r Retention
+	for _, f := range []struct {
+		name string
+		raw  string
+		dst  *time.Duration
+	}{
+		{"RETENTION_EVENTS_DAYS", c.RetentionEventsRaw, &r.Events},
+		{"RETENTION_INCIDENTS_DAYS", c.RetentionIncidentsRaw, &r.Incidents},
+		{"RETENTION_AUDIT_DAYS", c.RetentionAuditRaw, &r.Audit},
+	} {
+		if f.raw == "" {
+			continue
+		}
+		days, err := strconv.Atoi(f.raw)
+		if err != nil || days < 0 || days > maxRetentionDays {
+			return Retention{}, fmt.Errorf("%s %q must be a whole number of days between 0 (keep forever) and %d", f.name, f.raw, maxRetentionDays)
+		}
+		*f.dst = time.Duration(days) * 24 * time.Hour
+	}
+	return r, nil
+}
+
 // Validate reports configuration that would stop the agent from working.
 func (c Config) Validate() error {
 	if _, _, err := c.Incidents(); err != nil {
 		return err
 	}
 	if _, err := c.SessionTTL(); err != nil {
+		return err
+	}
+	if _, err := c.Retention(); err != nil {
 		return err
 	}
 	if (c.AdminUser == "") != (c.AdminPassword == "") {

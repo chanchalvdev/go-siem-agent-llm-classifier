@@ -19,6 +19,7 @@ const api = vi.hoisted(() => ({
   createUser: vi.fn(),
   updateUser: vi.fn(),
   listAudit: vi.fn(),
+  getRetention: vi.fn(),
   apiError: (e: unknown) => (e instanceof Error ? e.message : String(e)),
 }))
 vi.mock('../lib/api', () => api)
@@ -38,6 +39,7 @@ beforeEach(() => {
   api.createUser.mockResolvedValue(users[1])
   api.updateUser.mockResolvedValue(users[1])
   api.listAudit.mockResolvedValue(audit)
+  api.getRetention.mockResolvedValue({ active: false, events_days: 0, incidents_days: 0, audit_days: 0, last_run: null })
 })
 
 describe('Users page', () => {

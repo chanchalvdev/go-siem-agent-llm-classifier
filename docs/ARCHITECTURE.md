@@ -184,6 +184,13 @@ The schema is versioned: numbered SQL migrations in
 separate deploy step. A database migrated by a newer release is refused rather
 than run by an older binary.
 
+**Retention**: `RETENTION_EVENTS_DAYS`, `RETENTION_INCIDENTS_DAYS` and
+`RETENTION_AUDIT_DAYS` bound how long events, resolved incidents (with their
+alerts, history and response actions) and audit entries are kept. The purge
+runs hourly in batches; open incidents are never purged and expired login
+sessions always are. The default keeps everything. Admins see the policy and
+the last run on the **Audit** page (`GET /api/retention`).
+
 ## Security boundaries
 
 - **Authentication**: API keys (admin service accounts, constant-time HMAC

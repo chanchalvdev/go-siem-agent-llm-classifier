@@ -29,6 +29,22 @@ var (
 		},
 	)
 
+	RetentionDeletedTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "retention_deleted_total",
+			Help: "Rows deleted by the retention policy, by kind (events, incidents, audit, sessions).",
+		},
+		[]string{"kind"},
+	)
+
+	RetentionErrorsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "retention_errors_total",
+			Help: "Failed retention purges, by kind.",
+		},
+		[]string{"kind"},
+	)
+
 	AuthLoginsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "auth_logins_total",

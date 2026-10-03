@@ -28,6 +28,7 @@ import (
 	"github.com/chverma/siemagent/internal/parser"
 	"github.com/chverma/siemagent/internal/pipeline"
 	"github.com/chverma/siemagent/internal/response"
+	"github.com/chverma/siemagent/internal/retention"
 	"github.com/chverma/siemagent/internal/store"
 	"github.com/chverma/siemagent/pkg/ollama"
 	pkgqdrant "github.com/chverma/siemagent/pkg/qdrant"
@@ -200,9 +201,12 @@ func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.
 		}
 		incidents := newIncidentService(cfg, incStore)
 		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, actStore, incidents)),
-			api.WithUsers(newAuthService(ctx, cfg, authStore)))
+			api.WithUsers(newAuthService(ctx, cfg, authStore)), api.WithRetention(startRetention(ctx, cfg, pg)))
 	} else {
 		slog.Warn("POSTGRES_DSN not set: events are kept in memory and lost on restart", "component", "main")
+		if r, _ := cfg.Retention(); r != (config.Retention{}) {
+			slog.Warn("RETENTION_* settings apply only with POSTGRES_DSN; ignoring them", "component", "main")
+		}
 		incidents := newIncidentService(cfg, incident.NewMemory())
 		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, response.NewMemory(), incidents)),
 			api.WithUsers(newAuthService(ctx, cfg, auth.NewMemory())))
@@ -266,6 +270,22 @@ func newIncidentService(cfg config.Config, st incident.Store) *incident.Service 
 }
 
 // newAuthService opens the account store and creates the bootstrap admin.
+// startRetention runs the data retention policy in the background until ctx
+// ends. Expired login sessions are purged even when no policy is set.
+func startRetention(ctx context.Context, cfg config.Config, pg *store.Postgres) *retention.Runner {
+	r, _ := cfg.Retention() // checked by cfg.Validate
+	runner := retention.New(retention.Policy{Events: r.Events, Incidents: r.Incidents, Audit: r.Audit},
+		retention.NewPostgres(pg.Pool()), time.Hour)
+	if runner.Policy().Enabled() {
+		slog.Info("data retention enabled", "component", "main", "events_days", int(r.Events.Hours()/24),
+			"incidents_days", int(r.Incidents.Hours()/24), "audit_days", int(r.Audit.Hours()/24))
+	} else {
+		slog.Info("data retention off: events, incidents and audit entries are kept forever", "component", "main")
+	}
+	go runner.Start(ctx)
+	return runner
+}
+
 func newAuthService(ctx context.Context, cfg config.Config, st auth.Store) *auth.Service {
 	ttl, _ := cfg.SessionTTL() // checked by cfg.Validate at start
 	svc, err := auth.NewService(ctx, st, ttl)
