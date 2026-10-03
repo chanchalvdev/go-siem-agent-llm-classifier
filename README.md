@@ -301,7 +301,7 @@ Or test by hand:
 logger -n 127.0.0.1 -P 5514 -d "Failed password for root from 203.0.113.9 port 22 ssh2"
 ```
 
-Each line is parsed (RFC 3164 / RFC 5424, falling back to raw text), queued and classified by the worker pool. When the queue is full, lines are dropped rather than slowing senders down; watch `ingest_dropped_total` in `/metrics`.
+Each line is parsed (RFC 5424, RFC 3164 with or without `<PRI>` as written to `/var/log/auth.log`, or rsyslog's RFC 3339 "high-precision" format, falling back to raw text), queued and classified by the worker pool. When the queue is full, lines are dropped rather than slowing senders down; watch `ingest_dropped_total` in `/metrics`.
 
 ---
 

@@ -15,10 +15,18 @@ var rfc5424RE = regexp.MustCompile(
 	`^<(\d{1,3})>(\d)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(?:\[.*?\]\s*)?(.*)$`,
 )
 
-// rfc3164RE matches the older BSD syslog (RFC 3164) format.
-// <PRI>TIMESTAMP HOSTNAME TAG: MSG
+// rfc3164RE matches the older BSD syslog (RFC 3164) format, with or without
+// the <PRI> prefix: files such as /var/log/auth.log are written without it.
+// [<PRI>]TIMESTAMP HOSTNAME TAG[PID]: MSG
 var rfc3164RE = regexp.MustCompile(
-	`^<(\d{1,3})>(\w{3}\s+\d+\s+[\d:]+)\s+(\S+)\s+(\S+?):\s+(.*)$`,
+	`^(?:<(\d{1,3})>)?(\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2})\s+(\S+)\s+([^\s:\[]+)(?:\[([^\]\s]*)\])?:\s*(.*)$`,
+)
+
+// isoSyslogRE matches the "traditional" format with an RFC 3339 timestamp,
+// the default of rsyslog's high-precision template and of journald exports:
+// TIMESTAMP HOSTNAME TAG[PID]: MSG
+var isoSyslogRE = regexp.MustCompile(
+	`^(?:<(\d{1,3})>)?(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}))\s+(\S+)\s+([^\s:\[]+)(?:\[([^\]\s]*)\])?:\s*(.*)$`,
 )
 
 type Parser struct{}
@@ -92,26 +100,44 @@ func (p *Parser) parseRFC5424(line string) (models.LogEvent, bool) {
 }
 
 func (p *Parser) parseRFC3164(line string) (models.LogEvent, bool) {
+	if m := isoSyslogRE.FindStringSubmatch(line); m != nil {
+		ts, err := time.Parse(time.RFC3339Nano, m[2])
+		if err != nil {
+			// Offsets without a colon (+0000).
+			ts, _ = time.Parse("2006-01-02T15:04:05.999999999Z0700", m[2])
+		}
+		return bsdEvent(line, ts.UTC(), m), true
+	}
 	m := rfc3164RE.FindStringSubmatch(line)
 	if m == nil {
 		return models.LogEvent{}, false
 	}
-	ts, _ := time.Parse("Jan  2 15:04:05", m[2])
-	if ts.IsZero() {
-		ts, _ = time.Parse("Jan _2 15:04:05", m[2])
+	ts, err := time.Parse("Jan _2 15:04:05", strings.Join(strings.Fields(m[2]), " "))
+	if err == nil {
+		// BSD timestamps have no year. Assume the current one, unless that
+		// puts the line more than a day in the future (December logs read
+		// in January), in which case it is from last year.
+		now := time.Now().UTC()
+		ts = time.Date(now.Year(), ts.Month(), ts.Day(), ts.Hour(), ts.Minute(), ts.Second(), 0, time.UTC)
+		if ts.After(now.Add(24 * time.Hour)) {
+			ts = ts.AddDate(-1, 0, 0)
+		}
 	}
-	if !ts.IsZero() {
-		ts = time.Date(time.Now().Year(), ts.Month(), ts.Day(),
-			ts.Hour(), ts.Minute(), ts.Second(), 0, time.UTC)
-	}
+	return bsdEvent(line, ts, m), true
+}
+
+// bsdEvent builds an event from a BSD-style match: [1]=pri [2]=time
+// [3]=host [4]=tag [5]=pid [6]=message.
+func bsdEvent(line string, ts time.Time, m []string) models.LogEvent {
 	return models.LogEvent{
 		Raw:       line,
 		Timestamp: ts,
 		Hostname:  m[3],
 		AppName:   m[4],
-		Message:   strings.TrimSpace(m[5]),
+		ProcID:    m[5],
+		Message:   strings.TrimSpace(m[6]),
 		Source:    "syslog",
-	}, true
+	}
 }
 
 func (p *Parser) parseJSON(line string) (models.LogEvent, bool) {
