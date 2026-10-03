@@ -65,18 +65,19 @@ What had to exist before the platform could be used, trusted and open-sourced.
 Catch known-bad activity with rules, so the LLM is reserved for what rules miss.
 
 - [x] **Sigma rule engine** — load community [Sigma](https://github.com/SigmaHQ/sigma)
-      rules (3,000+) and evaluate them against every event (single-event
-      rules; aggregations still to come — see [docs/DETECTION.md](docs/DETECTION.md))
+      rules (3,000+) and evaluate them against every event
+      (see [docs/DETECTION.md](docs/DETECTION.md))
 - [ ] **Field normalisation** — map parsed logs onto a common schema
-      (ECS or OCSF) so one rule works across log sources
+      (ECS or OCSF) so one rule works across log sources (`src_ip`, `user`
+      and `dst_port` are extracted today)
 - [x] **Rule-first pipeline** — rule matches create alerts directly; only
       unmatched or ambiguous events go to the LLM (big cost/latency reduction)
 - [x] **Detection-as-code** — custom rules in git, with tests that replay
       sample logs against them
-- [ ] **Aggregation rules** — `count() by` thresholds over time windows
-      (e.g. 20 failed logins from one IP in 5 minutes)
-- [ ] **Rule management UI** — enable/disable, tune thresholds, see hit counts
-      and false-positive rates
+- [x] **Aggregation rules** — `count() by` thresholds over time windows
+      (e.g. 10 failed logins from one IP in 5 minutes)
+- [x] **Rule management UI** — enable/disable and hit counts
+- [ ] **Rule tuning** — edit thresholds and track false-positive rates
 - [ ] **IOC watchlists** — match IPs, domains and hashes from threat feeds
       (MISP, OTX, abuse.ch) in real time
 
