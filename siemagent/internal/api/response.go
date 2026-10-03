@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/chverma/siemagent/internal/incident"
+	"github.com/chverma/siemagent/internal/logsafe"
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/response"
 )
@@ -143,7 +144,7 @@ func (s *Server) responseError(w http.ResponseWriter, err error) bool {
 	case errors.Is(err, response.ErrInvalid):
 		writeJSON(w, http.StatusConflict, map[string]string{"error": strings.TrimPrefix(err.Error(), response.ErrInvalid.Error()+": ")})
 	default:
-		slog.Error("response action failed", "component", "api", "error", err)
+		slog.Error("response action failed", "component", "api", "error", logsafe.Err(err))
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "could not process the action"})
 	}
 	return true

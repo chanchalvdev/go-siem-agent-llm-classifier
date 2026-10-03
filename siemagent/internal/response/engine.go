@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/chverma/siemagent/internal/incident"
+	"github.com/chverma/siemagent/internal/logsafe"
 	"github.com/chverma/siemagent/internal/metrics"
 	"github.com/chverma/siemagent/internal/models"
 )
@@ -186,11 +187,11 @@ func (e *Engine) targets(p *Playbook, spec ActionSpec, inc incident.Incident) []
 			continue
 		}
 		if spec.Type == ActionBlockIP && !p.AllowPrivateIPs && !blockable(ent.Value) {
-			slog.Info("not proposing block of non-public IP", "component", "response", "ip", ent.Value, "playbook", p.ID)
+			slog.Info("not proposing block of non-public IP", "component", "response", "ip", logsafe.String(ent.Value), "playbook", p.ID)
 			continue
 		}
 		if spec.Type == ActionDisableUser && builtinAccount(ent.Value) {
-			slog.Info("not proposing to disable built-in account", "component", "response", "user", ent.Value, "playbook", p.ID)
+			slog.Info("not proposing to disable built-in account", "component", "response", "user", logsafe.String(ent.Value), "playbook", p.ID)
 			continue
 		}
 		out = append(out, ent.Value)

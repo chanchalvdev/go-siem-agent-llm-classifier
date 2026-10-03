@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/chverma/siemagent/internal/detection"
+	"github.com/chverma/siemagent/internal/logsafe"
 	"github.com/chverma/siemagent/internal/store"
 )
 
@@ -76,13 +77,13 @@ func (s *Server) handleUpdateDetectionRule(w http.ResponseWriter, r *http.Reques
 	}
 	if rs, ok := s.events.(store.RuleStates); ok {
 		if err := rs.SetRuleEnabled(r.Context(), id, *req.Enabled); err != nil {
-			slog.Error("save rule state failed", "component", "api", "rule", id, "error", err)
+			slog.Error("save rule state failed", "component", "api", "rule", rule.ID, "error", logsafe.Err(err))
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "could not save rule state"})
 			return
 		}
 	}
 	s.detections.SetEnabled(id, *req.Enabled)
-	slog.Info("detection rule updated", "component", "api", "rule", id, "enabled", *req.Enabled)
+	slog.Info("detection rule updated", "component", "api", "rule", logsafe.String(rule.ID), "enabled", rule.Enabled())
 	writeJSON(w, http.StatusOK, toDetectionRule(rule))
 }
 
