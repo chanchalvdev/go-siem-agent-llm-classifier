@@ -258,7 +258,12 @@ Dashboard available at **http://localhost:5173**
 | `KIMCHI_API_KEY` / `OPENAI_API_KEY` | Key for an OpenAI-compatible endpoint | — |
 | `KIMCHI_BASE_URL` | OpenAI-compatible base URL | `https://api.kimchi.ai/v1` |
 | `SIEM_MODEL` | Model for the OpenAI-compatible endpoint | `kimi-k2-5` |
-| `SIEM_API_KEYS` | Comma-separated API keys; enables auth when set | empty (auth off) |
+| `SIEM_API_KEYS` | Comma-separated API keys for machine access (admin role) | — |
+| `SIEM_ADMIN_USER` / `SIEM_ADMIN_PASSWORD` | Creates the first dashboard admin when no user exists ([docs/USERS.md](docs/USERS.md)) | — |
+| `SIEM_SESSION_TTL` / `SIEM_COOKIE_SECURE` | Login lifetime; Secure cookie behind HTTPS | `12h` / `false` |
+| `INCIDENT_WINDOW` / `INCIDENT_MIN_SEVERITY` | Alert correlation window and threshold ([docs/INCIDENTS.md](docs/INCIDENTS.md)) | `1h` / `P3` |
+| `PLAYBOOKS_DIR` | Extra response playbooks ([docs/RESPONSE.md](docs/RESPONSE.md)) | — |
+| `RESPONSE_WEBHOOK_URL` / `SLACK_WEBHOOK_URL` | Where approved containment actions and notifications go | — |
 | `POSTGRES_DSN` | Postgres connection string; empty keeps events in memory | see `.env.example` |
 | `DETECTION_MODE` | `rules-first`, `enrich` or `off` ([docs/DETECTION.md](docs/DETECTION.md)) | `rules-first` |
 | `SIGMA_RULES_DIR` | Extra Sigma rules folder, searched recursively | — |
@@ -302,14 +307,27 @@ Each line is parsed (RFC 3164 / RFC 5424, falling back to raw text), queued and 
 
 ## Authentication
 
-Set `SIEM_API_KEYS` (comma-separated, so keys can be rotated) and every route except `/health`, `/health/ready` and `/docs` requires a key:
+Three ways to authenticate (details in [docs/USERS.md](docs/USERS.md)):
 
-```bash
-curl -H "Authorization: Bearer $KEY" http://localhost:8080/api/events
-curl -H "X-API-Key: $KEY"            http://localhost:8080/api/events
-```
+- **User accounts**: set `SIEM_ADMIN_USER` and `SIEM_ADMIN_PASSWORD` to create
+  the first admin, then sign in to the dashboard and add users as **viewer**,
+  **analyst** or **admin**. Sessions use an `HttpOnly`, `SameSite=Strict`
+  cookie; every change is written to the audit log.
+- **API keys** for scripts and integrations: set `SIEM_API_KEYS`
+  (comma-separated, so keys can be rotated). A key acts as an admin:
 
-Browsers cannot set headers on a WebSocket handshake, so `/ws/alerts` also accepts `?api_key=<key>` (plain HTTP requests do not). See [SECURITY.md](SECURITY.md) for deployment advice.
+  ```bash
+  curl -H "Authorization: Bearer $KEY" http://localhost:8080/api/events
+  curl -H "X-API-Key: $KEY"            http://localhost:8080/api/events
+  ```
+
+  Browsers cannot set headers on a WebSocket handshake, so `/ws/alerts` also
+  accepts `?api_key=<key>` (plain HTTP requests do not).
+- **Open mode**: with neither configured, everything is allowed. For local
+  development only; the server warns at start.
+
+`/health`, `/health/ready`, `/docs` and `/api/auth/login` are always public.
+See [SECURITY.md](SECURITY.md) for deployment advice.
 
 ---
 
@@ -382,6 +400,11 @@ history. See [docs/INCIDENTS.md](docs/INCIDENTS.md).
 - `POST /api/incidents/{id}/investigate`: AI investigation of the whole incident
 - `GET /api/incidents/{id}/report`: Markdown incident report
 - `POST /api/incidents/{id}/feedback` with `{"helpful": true}`
+
+### Users and audit
+
+See [docs/USERS.md](docs/USERS.md): `POST /api/auth/login`, `GET /api/auth/me`,
+`/api/users` (admin) and `GET /api/audit` (admin).
 
 ### Response playbooks
 

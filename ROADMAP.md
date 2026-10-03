@@ -41,7 +41,7 @@ project's LLM agent stands out, so the platform is built around it.
 | 6 | Incidents and case management | 🚧 Core done (attachments, suppression open) |
 | 7 | AI investigation 2.0 | 🚧 In progress |
 | 8 | Response and automation | 🚧 Core done (native connectors open) |
-| 9 | Multi-user, RBAC and multi-tenancy | Planned |
+| 9 | Multi-user, RBAC and multi-tenancy | 🚧 Accounts, roles, audit done (SSO, tenancy open) |
 | 10 | Advanced analytics and hunting | Planned |
 | — | Integrations (ongoing track) | Planned |
 | — | AI quality and cost (ongoing track) | Planned |
@@ -136,11 +136,13 @@ From finding to fixing. See [docs/RESPONSE.md](docs/RESPONSE.md).
 
 ## Phase 9 — Multi-user, RBAC and multi-tenancy
 
-Required before teams or MSSPs can share one deployment.
+Required before teams or MSSPs can share one deployment. See [docs/USERS.md](docs/USERS.md).
 
-- [ ] **User accounts and SSO** — OIDC/SAML (Okta, Entra ID, Google)
-- [ ] **Roles** — admin, analyst, read-only; per-action permissions
-- [ ] **Audit log** — who saw, changed or approved what, and when
+- [x] **User accounts** — local accounts with bcrypt passwords, login sessions,
+      lockout after repeated failures
+- [ ] **SSO** — OIDC/SAML (Okta, Entra ID, Google) and MFA
+- [x] **Roles** — admin, analyst, viewer, enforced on every route
+- [x] **Audit log** — logins and every change: who, what, when, from where
 - [ ] **Multi-tenancy** — isolated data per tenant (Postgres schemas, Qdrant
       collections) for managed security providers
 - [ ] **Retention policies** — per-tenant TTLs and archival to object storage
