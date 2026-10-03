@@ -29,6 +29,23 @@ func RunIncidentStream(ctx context.Context, client *openai.Client, model string,
 		send(AgentEvent{Type: "error", Data: err.Error()})
 		return err
 	}
+	return runStream(ctx, client, model, reg, messages, send)
+}
+
+// RunBriefStream investigates with a caller-supplied system prompt and brief,
+// e.g. a whole correlated incident rather than a single event.
+func RunBriefStream(ctx context.Context, client *openai.Client, model string,
+	reg *Registry, systemPrompt, brief string, send func(AgentEvent)) error {
+
+	return runStream(ctx, client, model, reg, []openai.ChatCompletionMessage{
+		{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
+		{Role: openai.ChatMessageRoleUser, Content: brief},
+	}, send)
+}
+
+func runStream(ctx context.Context, client *openai.Client, model string,
+	reg *Registry, messages []openai.ChatCompletionMessage, send func(AgentEvent)) error {
+
 	tools := reg.OpenAITools()
 
 	// Enrichment: let the model call tools until it stops requesting them.

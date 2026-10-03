@@ -118,11 +118,13 @@ const (
 	ActivityResolution = "resolution"
 	// ActivityInvestigation holds an AI agent's investigation write-up.
 	ActivityInvestigation = "investigation"
+	// ActivityFeedback is an analyst's rating of an AI investigation.
+	ActivityFeedback = "feedback"
 )
 
 // Activity is one entry in an incident's audit history.
 type Activity struct {
-	ID         int64     `json:"id"`
+	ID         int64     `json:"id,omitempty"` // zero in the response that creates it
 	IncidentID string    `json:"incident_id"`
 	At         time.Time `json:"at"`
 	Actor      string    `json:"actor"`

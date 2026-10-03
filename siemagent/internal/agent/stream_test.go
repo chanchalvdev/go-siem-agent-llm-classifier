@@ -93,3 +93,34 @@ func contains(s []string, v string) bool {
 	}
 	return false
 }
+
+func TestRunBriefStreamUsesGivenPrompt(t *testing.T) {
+	var sawPrompt atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		if strings.Contains(string(body), "CUSTOM-SYSTEM") && strings.Contains(string(body), "BRIEF-123") {
+			sawPrompt.Store(true)
+		}
+		if strings.Contains(string(body), `"stream":true`) {
+			writeSSE(w)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(stopResp(""))
+	}))
+	defer srv.Close()
+	cfg := openai.DefaultConfig("test")
+	cfg.BaseURL = srv.URL
+	reg, _ := regWithTool()
+
+	var out strings.Builder
+	err := RunBriefStream(context.Background(), openai.NewClientWithConfig(cfg), "m", reg, "CUSTOM-SYSTEM", "BRIEF-123",
+		func(e AgentEvent) {
+			if e.Type == "chunk" {
+				out.WriteString(e.Data)
+			}
+		})
+	if err != nil || !sawPrompt.Load() || out.String() != "## Summary\ndone" {
+		t.Fatalf("err=%v sawPrompt=%v out=%q", err, sawPrompt.Load(), out.String())
+	}
+}
