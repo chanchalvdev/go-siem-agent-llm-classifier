@@ -32,25 +32,29 @@ Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Ev
 
 ## Features
 
-- **AI classification** — Gemini, a fully local model via Ollama, or any OpenAI-compatible API, with structured JSON output
-- **Sigma detection rules** — a built-in rule pack plus any Sigma rules you add (e.g. SigmaHQ); rule matches skip the LLM, cutting cost and latency ([docs/DETECTION.md](docs/DETECTION.md))
-- **Syslog ingestion** — UDP/TCP listener for rsyslog, syslog-ng and network devices, with back-pressure and drop metrics
-- **Durable storage** — PostgreSQL event history with an in-memory fallback for quick local runs
-- **API key authentication** — protects the API, WebSocket stream and metrics
-- **MITRE ATT&CK mapping** — tactic, technique ID, and technique name for every event
-- **Severity triage** — P1 Critical → P5 Info with visual indicators and pulse animation on P1
-- **Semantic search** — vector embeddings via Ollama + Qdrant to find similar past events
-- **IOC enrichment** — auto-detects IPs, hashes, domains and links to threat intel platforms
-- **Batch ingestion** — drag-and-drop `.log` / `.txt` files, classifies up to 500 lines
-- **Streaming classify** — SSE endpoint streams LLM response token-by-token
-- **Analytics dashboard** — attack type bar chart, event rate timeline, MITRE tactic pie chart
-- **Agent investigation (Phase 3)** — tool-calling LLM loop: MITRE lookup, AbuseIPDB IP reputation, AlienVault OTX intel, Qdrant similar-event recall, final verdict synthesis
-- **Live incident stream** — `/ws/alerts` WebSocket hub broadcasts sanitized agent progress; alert ticker + incident overlay in the UI
-- **MITRE heatmap & threat intel panel** — tactic/technique heat view and enriched intel summaries
-- **Prometheus metrics** — `/metrics` endpoint for Grafana integration
-- **Swagger UI** — interactive API docs at `/docs`
-- **Fully responsive** — works on mobile, tablet, and desktop
-- **Light and dark themes** — follows the OS by default, switchable (System / Light / Dark); every text colour meets WCAG AA contrast in both
+**Detect**
+- **Sigma detection rules**: a built-in rule pack plus any Sigma rules you add (e.g. SigmaHQ); rule matches skip the LLM, cutting cost and latency ([docs/DETECTION.md](docs/DETECTION.md))
+- **Threshold rules**: `count() by src_ip >= 10` over a time window catches brute force, password spraying, web scans and port scans
+- **Rule management**: enable or disable rules from the dashboard, with hit counts
+- **AI classification**: Gemini, a fully local model via Ollama, or any OpenAI-compatible API, with structured JSON output
+- **MITRE ATT&CK mapping and severity triage**: tactic, technique and P1 Critical → P5 Info for every event
+
+**Investigate**
+- **Incidents and case management**: related alerts grouped by IP, user or host, with status, assignee, resolution, comments, a kill-chain view and a full timeline ([docs/INCIDENTS.md](docs/INCIDENTS.md))
+- **AI investigation of whole incidents**: tool-calling agent (AbuseIPDB, OTX, MITRE, similar events) writes a cited report, once per P1/P2 incident or on demand; analysts rate it
+- **Incident reports**: self-contained Markdown export
+- **Semantic search**: vector embeddings via Ollama + Qdrant to find similar past events
+- **Live stream**: `/ws/alerts` WebSocket shows investigations as they run
+
+**Respond**
+- **Response playbooks**: YAML playbooks propose block IP, disable user, isolate host, notify or webhook actions; analysts approve or reject; dry-run mode; audited ([docs/RESPONSE.md](docs/RESPONSE.md))
+
+**Operate**
+- **Users, roles and audit log**: viewer / analyst / admin, bcrypt passwords, sessions, lockout, every change audited ([docs/USERS.md](docs/USERS.md)); API keys for machines
+- **Syslog ingestion**: UDP/TCP listener with back-pressure and drop metrics; batch upload of `.log` files
+- **Durable storage**: PostgreSQL, with an in-memory fallback for quick local runs
+- **Prometheus metrics** at `/metrics`, **Swagger UI** at `/docs`
+- **Dashboard**: responsive, light and dark themes meeting WCAG AA contrast
 
 ---
 
@@ -73,41 +77,29 @@ Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Ev
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    React Dashboard                       │
-│         (Vite dev :5173 → proxies /api → :8080)        │
-└───────────────────────┬─────────────────────────────────┘
-                        │ HTTP / SSE / WebSocket
-┌───────────────────────▼─────────────────────────────────┐
-│                   Go HTTP Server :8080                   │
-│   Chi router · Rate limiter · CORS · Security headers   │
-│                                                         │
-│  syslog UDP/TCP :5514    → live classification queue    │
-│  POST /api/classify      → LLM classify single log      │
-│  POST /api/classify/stream → SSE streaming classify     │
-│  POST /api/ingest        → Batch classify + store       │
-│  GET  /api/events        → Stored event history         │
-│  GET  /api/search        → Semantic vector search       │
-│  GET  /api/analytics/summary → Charts data              │
-│  GET  /ws/alerts         → Live incident WebSocket      │
-│  GET  /metrics           → Prometheus                   │
-│  GET  /docs              → Swagger UI                   │
-│                                                         │
-│  Agent (Phase 3): LLM tool loop → sanitize → WS hub     │
-│    tools: MITRE · AbuseIPDB · OTX · similar events      │
-└───┬───────────────┬─────────────────┬───────────────────┘
-    │               │                 │                │
-    ▼               ▼                 ▼                ▼
-┌────────┐   ┌──────────┐    ┌──────────────┐  ┌────────────┐
-│  LLM   │   │  Qdrant  │    │    Ollama    │  │ PostgreSQL │
-│Gemini /│   │ Vector DB│    │ Embeddings / │  │  events    │
-│ Ollama │   │  :6334   │    │ local LLM    │  │   :5433    │
-└────────┘   └──────────┘    └──────────────┘  └────────────┘
+ syslog / HTTP / upload
+          │
+          ▼
+ ┌──────────────────────────────── SIEMAgent (Go :8080) ─────────────────────────────────┐
+ │ auth (API key · session · roles · CSRF · audit)                                        │
+ │   → parse (RFC 5424 / 3164 / JSON)                                                     │
+ │   → detect (Sigma + threshold rules; a match skips the LLM)                            │
+ │   → classify (LLM: Gemini / Ollama / OpenAI-compatible; MITRE, severity, IOCs)          │
+ │   → store (events)                                                                     │
+ │   → correlate into incidents (shared IP / user / host within a window)                 │
+ │       ├─ investigate (AI agent on the whole incident, once per P1/P2 incident)         │
+ │       └─ respond (playbooks propose block IP / disable user / isolate host / notify;   │
+ │                   an analyst approves → RESPONSE_WEBHOOK_URL / Slack)                  │
+ └───────┬──────────────────────┬──────────────────────┬──────────────────────┬───────────┘
+         ▼                      ▼                      ▼                      ▼
+   PostgreSQL              Qdrant + Ollama           LLM               React dashboard :5173
+   events, incidents,      embeddings,                                 Events · Incidents · Response
+   actions, users, audit   similar events                              Analytics · Rules · Users · Audit
 ```
 
-> For a guided walkthrough of the codebase see
-> [docs/IMPLEMENTATION_TRACE_HIGH_LEVEL.md](docs/IMPLEMENTATION_TRACE_HIGH_LEVEL.md) (architecture & flows)
-> and [docs/IMPLEMENTATION_TRACE_LOW_LEVEL.md](docs/IMPLEMENTATION_TRACE_LOW_LEVEL.md) (file/line trace).
+The full end-to-end flow, with diagrams, is in
+**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**. To try every feature with a
+prepared attack scenario, follow **[docs/TESTING.md](docs/TESTING.md)**.
 
 ---
 
@@ -119,33 +111,39 @@ go-siem-agent-llm-classifier/
 │   ├── cmd/siemagent/        # Main entrypoint (CLI + HTTP server)
 │   ├── internal/
 │   │   ├── agent/            # LLM tool-calling agent + tools (MITRE, AbuseIPDB, OTX, similar events)
-│   │   ├── api/              # HTTP handlers, router, WS hub + sanitizer, middleware
+│   │   ├── api/              # HTTP handlers, router, auth/roles/CSRF/audit middleware, WS hub
+│   │   ├── auth/             # Users, roles, sessions, audit log
 │   │   ├── classifier/       # LLM-based event classifier
 │   │   ├── config/           # Environment config loader + provider selection
-│   │   ├── detection/        # Sigma rule engine + built-in rules (rules/*.yml)
+│   │   ├── detection/        # Sigma + threshold rule engine, built-in rules (rules/*.yml)
+│   │   ├── incident/         # Alert correlation, case management, reports, AI briefs
 │   │   ├── metrics/          # Prometheus metrics
 │   │   ├── mitre/            # Offline MITRE ATT&CK subset
 │   │   ├── ingest/           # Syslog UDP/TCP listener
+│   │   ├── logsafe/          # Strips control characters from untrusted log fields
 │   │   ├── models/           # Shared data models
 │   │   ├── parser/           # Syslog & JSON log parsers
 │   │   ├── pipeline/         # Concurrent worker pool
-│   │   └── store/            # Event store: PostgreSQL + in-memory fallback
+│   │   ├── response/         # Playbooks, proposed actions, approvals, webhook/Slack executor
+│   │   └── store/            # Event store and rule states: PostgreSQL + in-memory fallback
 │   ├── pkg/
 │   │   ├── ollama/           # Ollama embeddings client
 │   │   └── qdrant/           # Qdrant vector DB client + adapter
 │   ├── web/                  # React frontend
 │   │   ├── e2e/              # Playwright end-to-end tests
 │   │   └── src/
-│   │       ├── components/   # EventCard, AlertTicker, MITREHeatmap, ThreatIntelPanel…
-│   │       ├── hooks/        # useAlertStream (WebSocket incident state)
-│   │       ├── lib/          # API client (fetch + SSE)
-│   │       ├── pages/        # Dashboard, Search, Docs, Incident
+│   │       ├── auth/         # Sign-in gate and role context
+│   │       ├── components/   # EventCard, IncidentDetail, KillChain, ActionCard, AlertTicker…
+│   │       ├── hooks/        # useAlertStream, useActionDecisions
+│   │       ├── lib/          # API client (fetch + SSE), shared labels
+│   │       ├── pages/        # Dashboard, Incidents, Response, Rules, Users, Audit, Docs, Search
 │   │       └── __tests__/    # Vitest + Testing Library unit tests
 │   ├── docker-compose.yml    # Qdrant + Postgres + Ollama
 │   ├── Makefile              # Dev commands
+│   ├── demo/attack-scenario.log  # Brute force, port scan and ransomware story (docs/TESTING.md)
 │   ├── sample.log            # Sample log file for CLI mode
 │   └── test-logs.txt         # 30-line test file for UI upload
-├── docs/                     # Case study, development playbook, implementation traces
+├── docs/                     # ARCHITECTURE, TESTING, DETECTION, INCIDENTS, RESPONSE, USERS, BRANCHING…
 ├── specs/                    # Feature specs
 ├── ROADMAP.md                # Platform roadmap
 └── README.md

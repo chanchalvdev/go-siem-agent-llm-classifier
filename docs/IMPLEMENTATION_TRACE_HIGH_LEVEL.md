@@ -1,5 +1,7 @@
 # Implementation Trace — High Level
 
+> **Current architecture:** this trace covers Phases 1–3. For the full flow through detection, incidents, AI investigation, response and users, read [ARCHITECTURE.md](ARCHITECTURE.md).
+
 > **Living document.** Update the [Update Log](#update-log) whenever architecture changes
 > (new phase, new route, new page, new external service). Keep this file at the
 > "boxes and arrows" altitude — file/function detail lives in
@@ -113,3 +115,4 @@ overlay page.
 | Date | Author | Change |
 |---|---|---|
 | 2026-07-13 | Claude (initial) | Created doc covering Phases 1–3 as implemented |
+| 2026-10-03 | Claude | Phases 4–9 (Postgres, auth, Sigma + threshold rules, incidents, AI incident investigation, response playbooks, users/roles/audit) are described in [ARCHITECTURE.md](ARCHITECTURE.md); this trace still covers Phases 1–3 in detail |
