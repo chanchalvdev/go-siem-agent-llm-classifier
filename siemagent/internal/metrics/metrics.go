@@ -29,6 +29,14 @@ var (
 		},
 	)
 
+	ResponseActionsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "response_actions_total",
+			Help: "Response action state changes, by action type and resulting status.",
+		},
+		[]string{"type", "status"},
+	)
+
 	AIFeedbackTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "ai_investigation_feedback_total",

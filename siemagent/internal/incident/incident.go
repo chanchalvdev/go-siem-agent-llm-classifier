@@ -120,6 +120,8 @@ const (
 	ActivityInvestigation = "investigation"
 	// ActivityFeedback is an analyst's rating of an AI investigation.
 	ActivityFeedback = "feedback"
+	// ActivityResponse records response actions: proposed, approved, run.
+	ActivityResponse = "response"
 )
 
 // Activity is one entry in an incident's audit history.
