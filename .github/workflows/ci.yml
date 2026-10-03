@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go (vet, lint, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: siemagent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: siemagent/go.mod
+          cache-dependency-path: siemagent/go.sum
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd internal pkg)" || { gofmt -l cmd internal pkg; exit 1; }
+      - name: go vet
+        run: go vet ./... && go vet -tags integration ./...
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.5.0
+          working-directory: siemagent
+          args: --build-tags integration
+      - name: go test
+        run: go test -race -timeout 120s ./...
+      - name: go build
+        run: go build ./cmd/siemagent
+
+  go-integration:
+    name: Go integration (Postgres + Qdrant)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: siemagent
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: siemagent
+          POSTGRES_PASSWORD: siemagent
+          POSTGRES_DB: siemagent
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U siemagent"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports: ["6334:6334"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: siemagent/go.mod
+          cache-dependency-path: siemagent/go.sum
+      - name: Wait for Qdrant
+        run: |
+          for i in $(seq 1 30); do
+            (echo > /dev/tcp/127.0.0.1/6334) 2>/dev/null && exit 0
+            sleep 2
+          done
+          echo "Qdrant did not start"; exit 1
+      - name: go test -tags integration
+        env:
+          POSTGRES_TEST_DSN: postgres://siemagent:siemagent@localhost:5432/siemagent?sslmode=disable
+          QDRANT_TEST_HOST: localhost:6334
+        run: go test -race -tags integration -timeout 180s ./internal/store/... ./pkg/qdrant/...
+
+  web:
+    name: Web (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: siemagent/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: siemagent/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc -b
+      - run: npm test
+      - run: npx vite build
