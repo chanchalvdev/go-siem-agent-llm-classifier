@@ -4,6 +4,7 @@ import { Dashboard } from './pages/Dashboard'
 import { AlertTicker } from './components/AlertTicker'
 import { Incident } from './pages/Incident'
 import { useAlertStream } from './hooks/useAlertStream'
+import { ThemeProvider } from './theme/ThemeProvider'
 
 const queryClient = new QueryClient()
 
@@ -19,8 +20,8 @@ function LiveIncidents() {
     <>
       <AlertTicker incidents={active} onSelect={setSelected} />
       {current && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-auto">
-          <div className="w-full max-w-5xl rounded-xl border border-white/10 bg-gray-950 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-overlay/50 backdrop-blur-sm p-4 overflow-auto">
+          <div className="w-full max-w-5xl rounded-xl border border-line-strong bg-surface shadow-pop">
             <Incident
               incident={current}
               onClose={() => {
@@ -37,9 +38,11 @@ function LiveIncidents() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <LiveIncidents />
-      <Dashboard />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <LiveIncidents />
+        <Dashboard />
+      </QueryClientProvider>
+    </ThemeProvider>
   )
 }

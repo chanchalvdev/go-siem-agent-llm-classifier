@@ -91,7 +91,7 @@ func synthesize(ctx context.Context, client *openai.Client, model string,
 	if err != nil {
 		return failStream(send, err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	for {
 		resp, err := stream.Recv()

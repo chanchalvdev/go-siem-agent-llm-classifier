@@ -26,13 +26,13 @@ func dial(t *testing.T, url string) *websocket.Conn {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { _ = conn.Close() })
 	return conn
 }
 
 func expectMessage(t *testing.T, conn *websocket.Conn, want string) {
 	t.Helper()
-	conn.SetReadDeadline(time.Now().Add(time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(time.Second))
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
 		t.Fatalf("read: %v", err)
@@ -58,7 +58,7 @@ func TestHubDisconnectNoPanic(t *testing.T) {
 	c1, c2, c3 := dial(t, url), dial(t, url), dial(t, url)
 	waitClients(t, hub, 3)
 
-	c2.Close()
+	_ = c2.Close()
 	waitClients(t, hub, 2)
 
 	hub.Broadcast([]byte("after"))

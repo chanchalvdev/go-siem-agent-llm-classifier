@@ -26,9 +26,9 @@ func streamMockLLM(t *testing.T) *openai.Client {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if nonStream.Add(1) == 1 {
-			json.NewEncoder(w).Encode(toolCallResp())
+			_ = json.NewEncoder(w).Encode(toolCallResp())
 		} else {
-			json.NewEncoder(w).Encode(stopResp(""))
+			_ = json.NewEncoder(w).Encode(stopResp(""))
 		}
 	}))
 	t.Cleanup(srv.Close)
@@ -45,12 +45,12 @@ func writeSSE(w http.ResponseWriter) {
 			Delta: openai.ChatCompletionStreamChoiceDelta{Content: tok},
 		}}}
 		b, _ := json.Marshal(chunk)
-		w.Write([]byte("data: " + string(b) + "\n\n"))
+		_, _ = w.Write([]byte("data: " + string(b) + "\n\n"))
 		if flush != nil {
 			flush.Flush()
 		}
 	}
-	w.Write([]byte("data: [DONE]\n\n"))
+	_, _ = w.Write([]byte("data: [DONE]\n\n"))
 }
 
 func TestRunIncidentStreamEmitsEvents(t *testing.T) {

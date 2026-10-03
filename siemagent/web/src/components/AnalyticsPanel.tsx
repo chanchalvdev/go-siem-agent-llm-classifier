@@ -4,23 +4,26 @@ import {
   LineChart, Line, PieChart, Pie, Legend,
 } from 'recharts'
 import { getAnalytics } from '../lib/api'
-import { SEVERITY_COLORS } from '../styles/tokens'
+import type { Severity } from '../styles/tokens'
+import { useChartColors } from '../theme/chartColors'
 import { TrendingUp, Shield, Activity } from 'lucide-react'
 
-const AXIS_COLOR  = '#374151'
-const TEXT_COLOR  = '#6B7280'
-const PIE_COLORS  = ['#3B82F6','#8B5CF6','#EC4899','#EF4444','#F97316','#EAB308','#10B981','#06B6D4']
-
-const TOOLTIP_STYLE = {
-  background: '#0d1426',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: 8,
-  color: '#D1D5DB',
-  fontSize: 11,
-  padding: '6px 10px',
-}
+const CARD = 'bg-surface border border-line rounded-xl p-3 shadow-card'
+const CARD_TITLE = 'text-[10px] font-medium text-fg-subtle uppercase tracking-widest mb-3 flex items-center gap-1.5'
 
 export function AnalyticsPanel() {
+  const c = useChartColors()
+  const tooltipStyle = {
+    background: c.tooltipBg,
+    border: `1px solid ${c.tooltipBorder}`,
+    borderRadius: 8,
+    color: c.tooltipText,
+    fontSize: 11,
+    padding: '6px 10px',
+    boxShadow: '0 8px 24px -12px rgba(0,0,0,0.35)',
+  }
+  const tick = { fill: c.text, fontSize: 9 }
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ['analytics'],
     queryFn: getAnalytics,
@@ -32,7 +35,7 @@ export function AnalyticsPanel() {
     return (
       <div className="p-4 space-y-4">
         {[180, 140, 180].map((h, i) => (
-          <div key={i} className="rounded-xl bg-white/4 animate-pulse" style={{ height: h }} />
+          <div key={i} className="rounded-xl bg-fg/4 animate-pulse" style={{ height: h }} />
         ))}
       </div>
     )
@@ -41,8 +44,8 @@ export function AnalyticsPanel() {
   if (isError || !data) {
     return (
       <div className="flex flex-col items-center justify-center h-40 text-center px-4">
-        <Activity size={24} className="text-gray-700 mb-2" />
-        <p className="text-xs text-gray-600">Analytics unavailable</p>
+        <Activity size={24} className="text-fg-subtle mb-2" />
+        <p className="text-xs text-fg-subtle">Analytics unavailable</p>
       </div>
     )
   }
@@ -78,37 +81,37 @@ export function AnalyticsPanel() {
     <div className="p-4 space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
-          <TrendingUp size={15} className="text-blue-400" />
+        <h2 className="text-sm font-semibold text-fg flex items-center gap-2">
+          <TrendingUp size={15} className="text-accent-text" />
           Analytics
         </h2>
-        <span className="text-[10px] text-gray-600">{data.total_events} events total</span>
+        <span className="text-[10px] text-fg-subtle">{data.total_events} events total</span>
       </div>
 
       {/* Quick stat cards */}
       <div className="grid grid-cols-2 gap-2">
-        <div className="bg-red-950/30 border border-red-900/30 rounded-xl p-3">
-          <p className="text-[10px] text-red-400/70 uppercase tracking-widest">Critical</p>
-          <p className="text-2xl font-bold text-red-400 mt-0.5">{criticalCount}</p>
+        <div className="bg-sev-p1/10 border border-sev-p1/25 rounded-xl p-3">
+          <p className="text-[10px] text-sev-p1 uppercase tracking-widest">Critical</p>
+          <p className="text-2xl font-bold text-sev-p1 mt-0.5">{criticalCount}</p>
         </div>
-        <div className="bg-orange-950/30 border border-orange-900/30 rounded-xl p-3">
-          <p className="text-[10px] text-orange-400/70 uppercase tracking-widest">High</p>
-          <p className="text-2xl font-bold text-orange-400 mt-0.5">{highCount}</p>
+        <div className="bg-sev-p2/10 border border-sev-p2/25 rounded-xl p-3">
+          <p className="text-[10px] text-sev-p2 uppercase tracking-widest">High</p>
+          <p className="text-2xl font-bold text-sev-p2 mt-0.5">{highCount}</p>
         </div>
       </div>
 
       {/* Attack type bar chart */}
       {attackData.length > 0 && (
-        <div className="bg-white/3 border border-white/5 rounded-xl p-3">
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+        <div className={CARD}>
+          <p className={CARD_TITLE}>
             <Shield size={11} /> Attack Types
           </p>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={attackData} margin={{ left: -20, right: 4, top: 4, bottom: 36 }}>
               <XAxis
                 dataKey="name"
-                tick={{ fill: TEXT_COLOR, fontSize: 9 }}
-                axisLine={{ stroke: AXIS_COLOR }}
+                tick={tick}
+                axisLine={{ stroke: c.axis }}
                 tickLine={false}
                 interval={0}
                 angle={-35}
@@ -116,15 +119,15 @@ export function AnalyticsPanel() {
                 height={50}
               />
               <YAxis
-                tick={{ fill: TEXT_COLOR, fontSize: 9 }}
+                tick={tick}
                 axisLine={false}
                 tickLine={false}
                 allowDecimals={false}
               />
-              <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: c.tooltipText }} cursor={{ fill: c.grid, opacity: 0.5 }} />
               <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                 {attackData.map((entry, i) => (
-                  <Cell key={i} fill={SEVERITY_COLORS[entry.severity as keyof typeof SEVERITY_COLORS] ?? '#374151'} />
+                  <Cell key={i} fill={c.severity[entry.severity as Severity] ?? c.axis} />
                 ))}
               </Bar>
             </BarChart>
@@ -133,35 +136,35 @@ export function AnalyticsPanel() {
       )}
 
       {/* Timeline */}
-      <div className="bg-white/3 border border-white/5 rounded-xl p-3">
-        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+      <div className={CARD}>
+        <p className={CARD_TITLE}>
           <Activity size={11} /> Event Rate (6h)
         </p>
         <ResponsiveContainer width="100%" height={120}>
           <LineChart data={timelineData} margin={{ left: -20, right: 4, top: 4, bottom: 0 }}>
             <XAxis
               dataKey="time"
-              tick={{ fill: TEXT_COLOR, fontSize: 9 }}
-              axisLine={{ stroke: AXIS_COLOR }}
+              tick={tick}
+              axisLine={{ stroke: c.axis }}
               tickLine={false}
               interval={5}
             />
             <YAxis
-              tick={{ fill: TEXT_COLOR, fontSize: 9 }}
+              tick={tick}
               axisLine={false}
               tickLine={false}
               allowDecimals={false}
             />
-            <Tooltip contentStyle={TOOLTIP_STYLE} />
-            <Line type="monotone" dataKey="P1" stroke={SEVERITY_COLORS.P1} dot={false} strokeWidth={2} />
-            <Line type="monotone" dataKey="P2" stroke={SEVERITY_COLORS.P2} dot={false} strokeWidth={2} />
-            <Line type="monotone" dataKey="P3" stroke={SEVERITY_COLORS.P3} dot={false} strokeWidth={1.5} strokeDasharray="4 2" />
+            <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: c.tooltipText }} />
+            <Line type="monotone" dataKey="P1" stroke={c.severity.P1} dot={false} strokeWidth={2} />
+            <Line type="monotone" dataKey="P2" stroke={c.severity.P2} dot={false} strokeWidth={2} />
+            <Line type="monotone" dataKey="P3" stroke={c.severity.P3} dot={false} strokeWidth={1.5} strokeDasharray="4 2" />
           </LineChart>
         </ResponsiveContainer>
         <div className="flex items-center gap-3 mt-2 justify-end">
           {(['P1','P2','P3'] as const).map(s => (
-            <span key={s} className="flex items-center gap-1 text-[10px] text-gray-600">
-              <span className="w-3 h-0.5 rounded-full inline-block" style={{ background: SEVERITY_COLORS[s] }} />
+            <span key={s} className="flex items-center gap-1 text-[10px] text-fg-subtle">
+              <span className="w-3 h-0.5 rounded-full inline-block" style={{ background: c.severity[s] }} />
               {s}
             </span>
           ))}
@@ -170,8 +173,8 @@ export function AnalyticsPanel() {
 
       {/* MITRE pie */}
       {tacticData.length > 0 && (
-        <div className="bg-white/3 border border-white/5 rounded-xl p-3">
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">MITRE Tactics</p>
+        <div className={CARD}>
+          <p className={CARD_TITLE}>MITRE Tactics</p>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie
@@ -185,12 +188,12 @@ export function AnalyticsPanel() {
                 paddingAngle={2}
               >
                 {tacticData.map((_, i) => (
-                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  <Cell key={i} fill={c.series[i % c.series.length]} stroke={c.tooltipBg} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: c.tooltipText }} />
               <Legend
-                wrapperStyle={{ color: TEXT_COLOR, fontSize: 10, paddingTop: 8 }}
+                wrapperStyle={{ color: c.text, fontSize: 10, paddingTop: 8 }}
                 iconSize={8}
                 iconType="circle"
               />

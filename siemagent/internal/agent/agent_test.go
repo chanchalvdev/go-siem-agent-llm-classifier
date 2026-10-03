@@ -35,7 +35,7 @@ func mockLLM(t *testing.T, responses []openai.ChatCompletionResponse) *openai.Cl
 			i = len(responses) - 1
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(responses[i])
+		_ = json.NewEncoder(w).Encode(responses[i])
 	}))
 	t.Cleanup(srv.Close)
 	cfg := openai.DefaultConfig("test")

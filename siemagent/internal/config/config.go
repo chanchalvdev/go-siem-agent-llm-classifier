@@ -1,83 +1,128 @@
 package config
 
-import "os"
+import (
+	"errors"
+	"fmt"
+	"os"
+	"strings"
+)
 
-// Gemini exposes an OpenAI-compatible endpoint, so the existing go-openai
-// client works against it unchanged.
+// LLM providers. Every provider is reached through an OpenAI-compatible
+// endpoint, so the go-openai client works against all of them unchanged.
+const (
+	ProviderGemini = "gemini"
+	ProviderOllama = "ollama" // local model, no API key, logs never leave the host
+	ProviderOpenAI = "openai" // any OpenAI-compatible endpoint (Kimchi, OpenAI, Groq…)
+)
+
 const (
 	geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 	geminiModel   = "gemini-3.8-flash"
-	kimchiBaseURL = "https://api.kimchi.ai/v1"
-	kimchiModel   = "kimi-k2-5"
+	ollamaModel   = "llama3.2"
+	openaiBaseURL = "https://api.kimchi.ai/v1"
+	openaiModel   = "kimi-k2-5"
 )
 
 type Config struct {
-	Provider      string // "gemini" or "kimchi" (any OpenAI-compatible endpoint)
+	Provider      string // ProviderGemini | ProviderOllama | ProviderOpenAI
 	BaseURL       string // OpenAI-compatible endpoint
 	APIKey        string
 	ModelName     string
 	Workers       int
 	Port          string
-	QdrantAddr    string // gRPC address for Qdrant (host:port)
-	OllamaURL     string // Ollama base URL for embeddings
-	AllowedOrigin string // CORS allowed origin
+	QdrantAddr    string   // gRPC address for Qdrant (host:port)
+	OllamaURL     string   // Ollama base URL (embeddings, and chat when Provider is ollama)
+	AllowedOrigin string   // CORS allowed origin
+	APIKeys       []string // accepted API keys; empty disables auth (dev mode)
+	PostgresDSN   string   // empty keeps events in memory only
+	SyslogUDPAddr string   // e.g. ":5514"; empty disables the UDP listener
+	SyslogTCPAddr string   // e.g. ":5514"; empty disables the TCP listener
 }
 
 func Load() Config {
-	// GEMINI_API_KEY takes precedence; otherwise fall back to Kimchi/OpenAI.
-	// Each provider reads its own model variable so a leftover Kimchi
-	// SIEM_MODEL is never sent to Gemini.
-	provider := "gemini"
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	baseURL := os.Getenv("GEMINI_BASE_URL")
-	model := os.Getenv("GEMINI_MODEL")
-	defaultBaseURL, defaultModel := geminiBaseURL, geminiModel
-	if apiKey == "" {
-		provider = "kimchi"
-		apiKey = os.Getenv("KIMCHI_API_KEY")
-		if apiKey == "" {
-			apiKey = os.Getenv("OPENAI_API_KEY")
-		}
-		baseURL = os.Getenv("KIMCHI_BASE_URL")
-		model = os.Getenv("SIEM_MODEL")
-		defaultBaseURL, defaultModel = kimchiBaseURL, kimchiModel
-	}
-	if baseURL == "" {
-		baseURL = defaultBaseURL
-	}
-	if model == "" {
-		model = defaultModel
-	}
+	ollamaURL := strings.TrimRight(getenv("OLLAMA_URL", "http://localhost:11434"), "/")
 
-	port := os.Getenv("CONDUCTOR_PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	qdrantAddr := os.Getenv("QDRANT_ADDR")
-	if qdrantAddr == "" {
-		qdrantAddr = "localhost:6334"
-	}
-
-	ollamaURL := os.Getenv("OLLAMA_URL")
-	if ollamaURL == "" {
-		ollamaURL = "http://localhost:11434"
-	}
-
-	allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
-	if allowedOrigin == "" {
-		allowedOrigin = "http://localhost:5173"
-	}
-
-	return Config{
-		Provider:      provider,
-		BaseURL:       baseURL,
-		APIKey:        apiKey,
-		ModelName:     model,
+	cfg := Config{
 		Workers:       5,
-		Port:          port,
-		QdrantAddr:    qdrantAddr,
+		Port:          getenv("CONDUCTOR_PORT", "8080"),
+		QdrantAddr:    getenv("QDRANT_ADDR", "localhost:6334"),
 		OllamaURL:     ollamaURL,
-		AllowedOrigin: allowedOrigin,
+		AllowedOrigin: getenv("ALLOWED_ORIGIN", "http://localhost:5173"),
+		APIKeys:       splitList(os.Getenv("SIEM_API_KEYS")),
+		PostgresDSN:   os.Getenv("POSTGRES_DSN"),
+		SyslogUDPAddr: os.Getenv("SYSLOG_UDP_ADDR"),
+		SyslogTCPAddr: os.Getenv("SYSLOG_TCP_ADDR"),
 	}
+
+	cfg.Provider = strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
+	if cfg.Provider == "kimchi" {
+		cfg.Provider = ProviderOpenAI
+	}
+	if cfg.Provider == "" {
+		// Auto-detect: a Gemini key wins, otherwise the OpenAI-compatible fallback.
+		cfg.Provider = ProviderOpenAI
+		if os.Getenv("GEMINI_API_KEY") != "" {
+			cfg.Provider = ProviderGemini
+		}
+	}
+
+	// Each provider reads its own model variable so a leftover SIEM_MODEL
+	// (e.g. a Kimchi model name) is never sent to Gemini or Ollama.
+	switch cfg.Provider {
+	case ProviderGemini:
+		cfg.APIKey = os.Getenv("GEMINI_API_KEY")
+		cfg.BaseURL = getenv("GEMINI_BASE_URL", geminiBaseURL)
+		cfg.ModelName = getenv("GEMINI_MODEL", geminiModel)
+	case ProviderOllama:
+		// Ollama ignores the key, but the OpenAI client needs a non-empty one.
+		cfg.APIKey = "ollama"
+		cfg.BaseURL = ollamaURL + "/v1"
+		cfg.ModelName = getenv("OLLAMA_MODEL", ollamaModel)
+	case ProviderOpenAI:
+		cfg.APIKey = os.Getenv("KIMCHI_API_KEY")
+		if cfg.APIKey == "" {
+			cfg.APIKey = os.Getenv("OPENAI_API_KEY")
+		}
+		cfg.BaseURL = getenv("KIMCHI_BASE_URL", openaiBaseURL)
+		cfg.ModelName = getenv("SIEM_MODEL", openaiModel)
+	}
+	return cfg
+}
+
+// Validate reports configuration that would stop the agent from working.
+func (c Config) Validate() error {
+	switch c.Provider {
+	case ProviderGemini:
+		if c.APIKey == "" {
+			return errors.New("LLM_PROVIDER=gemini needs GEMINI_API_KEY")
+		}
+	case ProviderOpenAI:
+		if c.APIKey == "" {
+			return errors.New("set GEMINI_API_KEY, KIMCHI_API_KEY or OPENAI_API_KEY, or use LLM_PROVIDER=ollama for a local model")
+		}
+	case ProviderOllama:
+	default:
+		return fmt.Errorf("unknown LLM_PROVIDER %q (want gemini, ollama or openai)", c.Provider)
+	}
+	return nil
+}
+
+// AuthEnabled reports whether API key authentication is enforced.
+func (c Config) AuthEnabled() bool { return len(c.APIKeys) > 0 }
+
+func getenv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+func splitList(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

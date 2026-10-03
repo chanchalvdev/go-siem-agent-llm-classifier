@@ -68,7 +68,7 @@ func TestHandleHealth_Returns200(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /health: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status: want 200, got %d", resp.StatusCode)
@@ -92,7 +92,7 @@ func TestHandleClassify_ValidSyslog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /classify: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status: want 200, got %d", resp.StatusCode)
@@ -120,7 +120,7 @@ func TestHandleClassify_EmptyBody_Returns400(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /classify: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("status: want 400, got %d", resp.StatusCode)
@@ -147,7 +147,7 @@ func TestHandleClassify_OversizedBody_Returns400(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /classify: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("status: want 400, got %d", resp.StatusCode)
@@ -171,7 +171,7 @@ func TestHandleClassify_InvalidFormat_Returns400(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /classify: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("status: want 400, got %d", resp.StatusCode)
@@ -186,7 +186,7 @@ func TestHandleClassify_InvalidJSON_Returns400(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /classify: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("status: want 400, got %d", resp.StatusCode)
@@ -203,7 +203,7 @@ func TestHandleClassify_ResponseFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /classify: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var raw map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
@@ -225,7 +225,7 @@ func TestDocs_UIReturns200(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /docs: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status: want 200, got %d", resp.StatusCode)
@@ -244,7 +244,7 @@ func TestDocs_SpecReturnsYAML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /docs/openapi.yaml: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status: want 200, got %d", resp.StatusCode)

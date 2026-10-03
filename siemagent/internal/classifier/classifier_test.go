@@ -52,12 +52,12 @@ func makeSSEServer(content string) *httptest.Server {
 		}
 		for _, chunk := range chunks {
 			b, _ := json.Marshal(chunk)
-			fmt.Fprintf(w, "data: %s\n\n", b)
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
 			if f, ok := w.(http.Flusher); ok {
 				f.Flush()
 			}
 		}
-		fmt.Fprintf(w, "data: [DONE]\n\n")
+		_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
 	}))
 }
 

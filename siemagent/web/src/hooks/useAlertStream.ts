@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { withApiKey } from '../lib/api'
 
 // AgentEvent mirrors the Go api broadcast payload.
 export interface AgentEvent {
@@ -28,7 +29,7 @@ const MAX_BACKOFF = 30_000
 
 function defaultURL(): string {
   const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${proto}://${window.location.host}/ws/alerts`
+  return withApiKey(`${proto}://${window.location.host}/ws/alerts`)
 }
 
 // apply folds one AgentEvent into the incident map, returning a new map.

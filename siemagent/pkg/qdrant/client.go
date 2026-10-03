@@ -79,8 +79,11 @@ func (s *Store) Upsert(ctx context.Context, id string, vector []float32, payload
 		return fmt.Errorf("Upsert build payload: %w", err)
 	}
 
+	// Wait for the write to be applied: without it the point is indexed
+	// asynchronously and an immediate search can miss it.
 	_, err = s.client.Upsert(ctx, &qd.UpsertPoints{
 		CollectionName: s.collection,
+		Wait:           qd.PtrOf(true),
 		Points: []*qd.PointStruct{{
 			Id:      pointID,
 			Vectors: qd.NewVectors(vector...),

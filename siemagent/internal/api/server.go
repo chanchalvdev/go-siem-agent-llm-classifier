@@ -21,6 +21,7 @@ import (
 	"github.com/chverma/siemagent/internal/agent"
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/config"
+	"github.com/chverma/siemagent/internal/metrics"
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
 	"github.com/chverma/siemagent/internal/store"
@@ -50,22 +51,33 @@ type Server struct {
 	parser     *parser.Parser
 	router     *chi.Mux
 	http       *http.Server
-	events     *store.EventStore
+	events     store.Store
 	search     Searcher      // nil when Qdrant not configured
 	embed      Embedder      // nil when Ollama not configured
 	hub        *Hub          // nil when live alert stream disabled
 	agent      *agentRuntime // nil when Phase 3 agent disabled
 }
 
+// maxConcurrentInvestigations caps agent runs in flight. Bulk ingest and
+// syslog can produce bursts of P1/P2 events; without a cap each would start
+// its own multi-call LLM investigation at once.
+const maxConcurrentInvestigations = 4
+
 // agentRuntime bundles the pieces the P1/P2 auto-trigger needs.
 type agentRuntime struct {
 	client   *openai.Client
 	model    string
 	registry *agent.Registry
+	slots    chan struct{} // semaphore of maxConcurrentInvestigations
 }
 
 // ServerOption lets callers attach optional Phase 2/3 components.
 type ServerOption func(*Server)
+
+// WithStore replaces the default in-memory event store (e.g. with Postgres).
+func WithStore(st store.Store) ServerOption {
+	return func(srv *Server) { srv.events = st }
+}
 
 func WithSearch(s Searcher, e Embedder) ServerOption {
 	return func(srv *Server) {
@@ -79,7 +91,10 @@ func WithSearch(s Searcher, e Embedder) ServerOption {
 func WithAgent(hub *Hub, client *openai.Client, model string, reg *agent.Registry) ServerOption {
 	return func(srv *Server) {
 		srv.hub = hub
-		srv.agent = &agentRuntime{client: client, model: model, registry: reg}
+		srv.agent = &agentRuntime{
+			client: client, model: model, registry: reg,
+			slots: make(chan struct{}, maxConcurrentInvestigations),
+		}
 	}
 }
 
@@ -104,41 +119,44 @@ func New(cfg config.Config, cls classifier.Interface, opts ...ServerOption) *Ser
 func (s *Server) buildRouter() *chi.Mux {
 	r := chi.NewRouter()
 
-	// Middleware stack
+	// Middleware stack. middleware.RealIP is deliberately absent: it trusts
+	// client-supplied X-Forwarded-For headers, which would let anyone spoof
+	// their IP past the rate limiter.
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
 	r.Use(slogRequestLogger)
 	r.Use(middleware.Recoverer)
 	r.Use(newRateLimiter(100).middleware)
 	r.Use(securityHeaders)
 	r.Use(corsMiddleware(s.cfg))
 
-	// Health
+	// Public: health probes and API docs.
 	r.Get("/health", s.handleHealth)
 	r.Get("/health/ready", s.handleReady)
-
-	// Metrics
-	r.Handle("/metrics", promhttp.Handler())
-
-	// API routes
-	r.Route("/api", func(r chi.Router) {
-		r.Post("/classify", s.handleClassify)
-		r.Post("/classify/stream", s.handleClassifyStream)
-		r.Post("/ingest", s.handleIngest)
-		r.Get("/search", s.handleSearch)
-		r.Get("/analytics/summary", s.handleAnalyticsSummary)
-	})
-
-	// Legacy top-level routes for backward compatibility
-	r.Post("/classify", s.handleClassify)
-	r.Post("/classify/stream", s.handleClassifyStream)
-
-	// Phase 3 live incident stream (WebSocket)
-	r.Get("/ws/alerts", s.handleAlertStream)
-
-	// Swagger UI at /docs and /docs/openapi.yaml
 	r.Get("/docs", s.handleDocsUI)
 	r.Get("/docs/openapi.yaml", s.handleDocsSpec)
+
+	// Everything else requires an API key when SIEM_API_KEYS is set.
+	r.Group(func(r chi.Router) {
+		r.Use(apiKeyAuth(s.cfg.APIKeys))
+
+		r.Handle("/metrics", promhttp.Handler())
+
+		r.Route("/api", func(r chi.Router) {
+			r.Post("/classify", s.handleClassify)
+			r.Post("/classify/stream", s.handleClassifyStream)
+			r.Post("/ingest", s.handleIngest)
+			r.Get("/events", s.handleEvents)
+			r.Get("/search", s.handleSearch)
+			r.Get("/analytics/summary", s.handleAnalyticsSummary)
+		})
+
+		// Legacy top-level routes for backward compatibility
+		r.Post("/classify", s.handleClassify)
+		r.Post("/classify/stream", s.handleClassifyStream)
+
+		// Live incident stream (WebSocket)
+		r.Get("/ws/alerts", s.handleAlertStream)
+	})
 
 	return r
 }
@@ -260,7 +278,7 @@ func corsMiddleware(cfg config.Config) func(http.Handler) http.Handler {
 			if origin != "" {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
 			}
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)
@@ -314,9 +332,22 @@ func (s *Server) handleClassify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.events.Add(classified)
-	s.maybeInvestigate(classified)
+	s.record(classified)
 	writeJSON(w, http.StatusOK, sanitizeEvent(classified))
+}
+
+// record persists a classified event and, for P1/P2, launches the incident
+// agent. Every ingestion path (HTTP, stream, bulk, syslog) goes through here.
+// It deliberately ignores the request context: a client disconnecting must
+// not lose an event that was already classified.
+func (s *Server) record(ev models.ClassifiedEvent) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := s.events.Add(ctx, ev); err != nil {
+		metrics.StoreErrorsTotal.Inc()
+		slog.Error("persist event failed", "component", "api", "error", err)
+	}
+	s.maybeInvestigate(ev)
 }
 
 // maybeInvestigate launches an agent investigation for P1/P2 events and
@@ -328,9 +359,18 @@ func (s *Server) maybeInvestigate(ev models.ClassifiedEvent) {
 	if ev.Severity != models.SeverityP1 && ev.Severity != models.SeverityP2 {
 		return
 	}
+	select {
+	case s.agent.slots <- struct{}{}:
+	default:
+		metrics.InvestigationsSkippedTotal.Inc()
+		slog.Warn("investigation skipped: too many in flight", "component", "api",
+			"limit", maxConcurrentInvestigations, "attack_type", ev.AttackType)
+		return
+	}
 	incidentID := uuid()
 	eventID := ev.ProcessedAt.Format(time.RFC3339Nano)
 	go func() {
+		defer func() { <-s.agent.slots }()
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		err := agent.RunIncidentStream(ctx, s.agent.client, s.agent.model, s.agent.registry, ev,
@@ -384,7 +424,7 @@ func (s *Server) handleClassifyStream(w http.ResponseWriter, r *http.Request) {
 
 	sendSSE := func(data any) {
 		b, _ := json.Marshal(data)
-		fmt.Fprintf(w, "data: %s\n\n", b)
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
 		flusher.Flush()
 	}
 
@@ -399,7 +439,8 @@ func (s *Server) handleClassifyStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendSSE(map[string]interface{}{"result": classified, "done": true})
+	s.record(classified)
+	sendSSE(map[string]interface{}{"result": sanitizeEvent(classified), "done": true})
 }
 
 // --- helpers ---
@@ -407,5 +448,5 @@ func (s *Server) handleClassifyStream(w http.ResponseWriter, r *http.Request) {
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }

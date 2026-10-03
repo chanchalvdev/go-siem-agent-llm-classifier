@@ -17,7 +17,7 @@ func otxInput(indicator, typ string) json.RawMessage {
 
 func TestOTXValidIP(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte(`{"pulse_info":{"count":3,"pulses":[{"name":"APT Campaign","created":"2024-02-01","tags":["apt","malware"],"adversary":"APT28"}]}}`))
+		_, _ = w.Write([]byte(`{"pulse_info":{"count":3,"pulses":[{"name":"APT Campaign","created":"2024-02-01","tags":["apt","malware"],"adversary":"APT28"}]}}`))
 	}))
 	defer srv.Close()
 

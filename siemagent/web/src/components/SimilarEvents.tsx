@@ -26,34 +26,34 @@ export function SimilarEvents({ summary }: Props) {
 
   return (
     <div>
-      <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Similar past events</p>
+      <p className="text-xs text-fg-subtle uppercase tracking-wider mb-2">Similar past events</p>
 
       {isLoading && (
         <div className="space-y-2">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-12 bg-gray-800 rounded animate-pulse" />
+            <div key={i} className="h-12 bg-surface-2 rounded animate-pulse" />
           ))}
         </div>
       )}
 
       {!isLoading && hits.length === 0 && (
-        <p className="text-xs text-gray-600">No similar events found.</p>
+        <p className="text-xs text-fg-subtle">No similar events found.</p>
       )}
 
       <div className="space-y-1.5">
         {hits.map((hit, i) => (
           <div
             key={`${hit.event_id}-${i}`}
-            className="bg-gray-800/60 rounded px-3 py-2 flex items-center justify-between gap-2"
+            className="bg-fg/4 rounded px-3 py-2 flex items-center justify-between gap-2"
           >
             <div className="flex items-center gap-2 min-w-0">
               <SeverityBadge severity={hit.severity as Severity} size="sm" />
-              <span className="text-xs text-gray-300 truncate">{hit.attack_type}</span>
+              <span className="text-xs text-fg-muted truncate">{hit.attack_type}</span>
               {hit.source && (
-                <span className="text-xs text-gray-600 shrink-0">{hit.source}</span>
+                <span className="text-xs text-fg-subtle shrink-0">{hit.source}</span>
               )}
             </div>
-            <span className="text-xs text-gray-600 shrink-0">{timeAgo(hit.timestamp)}</span>
+            <span className="text-xs text-fg-subtle shrink-0">{timeAgo(hit.timestamp)}</span>
           </div>
         ))}
       </div>

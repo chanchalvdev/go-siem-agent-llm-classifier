@@ -18,7 +18,7 @@ func input(t *testing.T, ip string) json.RawMessage {
 
 func TestAbuseIPDBValidIP(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte(`{"data":{"abuseConfidenceScore":87,"countryCode":"CN","isp":"Evil ISP","totalReports":142,"lastReportedAt":"2024-01-10T00:00:00Z"}}`))
+		_, _ = w.Write([]byte(`{"data":{"abuseConfidenceScore":87,"countryCode":"CN","isp":"Evil ISP","totalReports":142,"lastReportedAt":"2024-01-10T00:00:00Z"}}`))
 	}))
 	defer srv.Close()
 
@@ -74,7 +74,7 @@ func TestAbuseIPDBUpstream429(t *testing.T) {
 
 func TestAbuseIPDBMalformedJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte(`{not json`))
+		_, _ = w.Write([]byte(`{not json`))
 	}))
 	defer srv.Close()
 

@@ -17,11 +17,13 @@ describe('SeverityBadge', () => {
     }
   })
 
-  it('applies red color class for P1', () => {
+  it('applies the P1 (critical red) severity colour token', () => {
     const { container } = render(<SeverityBadge severity="P1" />)
     const badge = container.firstChild as HTMLElement
-    // P1 uses red color classes
-    expect(badge.className).toMatch(/red/)
+    // Severity colours are theme tokens (red in both themes for P1).
+    expect(badge.className).toMatch(/text-sev-p1/)
+    const { container: low } = render(<SeverityBadge severity="P4" />)
+    expect((low.firstChild as HTMLElement).className).not.toMatch(/sev-p1/)
   })
 
   it('applies pulse animation class for P1', () => {

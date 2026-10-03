@@ -2,43 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens. Values are RGB channels consumed by tailwind.config.js.
+ * Every text token meets WCAG AA (4.5:1) on canvas, surface and surface-2 in
+ * its theme; severity colours meet it on surface, so they can be used as
+ * small text, not only as fills.
+ */
 @layer base {
+  :root {
+    color-scheme: light;
+    --canvas: 246 248 251;
+    --surface: 255 255 255;
+    --surface-2: 241 244 248;
+    --line: 226 231 238;
+    --line-strong: 203 211 222;
+    --fg: 15 23 42;            /* slate-900 */
+    --fg-muted: 71 85 105;     /* slate-600 */
+    --fg-subtle: 92 106 128;   /* ≥4.5:1 on surface-2 */
+    --accent: 37 99 235;       /* blue-600: white text 5.2:1 */
+    --accent-strong: 29 78 216;
+    --accent-text: 29 78 216;  /* blue-700 */
+    --on-accent: 255 255 255;
+    --success: 21 128 61;
+    --warning: 180 83 9;
+    --danger: 185 28 28;
+    --info: 109 40 217;
+    --overlay: 15 23 42;
+    --shadow: 15 23 42;
+    --sev-p1: 200 30 30;       /* between red-600 and red-700 */
+    --sev-p2: 194 65 12;       /* orange-700 */
+    --sev-p3: 140 82 8;        /* between yellow-700 and yellow-800 */
+    --sev-p4: 37 99 235;       /* blue-600 */
+    --sev-p5: 88 101 122;      /* slate-500/600 */
+  }
+
+  .dark {
+    color-scheme: dark;
+    --canvas: 10 15 30;
+    --surface: 15 22 41;
+    --surface-2: 23 32 56;
+    --line: 32 41 64;
+    --line-strong: 47 58 86;
+    --fg: 241 245 249;         /* slate-100 */
+    --fg-muted: 160 174 196;
+    --fg-subtle: 124 139 163;  /* ≥4.5:1 on surface */
+    --accent: 37 99 235;
+    --accent-strong: 29 78 216;  /* darker on hover keeps white text ≥ AA */
+    --accent-text: 96 165 250; /* blue-400 */
+    --on-accent: 255 255 255;
+    --success: 74 222 128;
+    --warning: 251 191 36;
+    --danger: 248 113 113;
+    --info: 192 132 252;
+    --overlay: 2 6 23;
+    --shadow: 0 0 0;
+    --sev-p1: 248 113 113;     /* red-400 */
+    --sev-p2: 251 146 60;      /* orange-400 */
+    --sev-p3: 250 204 21;      /* yellow-400 */
+    --sev-p4: 96 165 250;      /* blue-400 */
+    --sev-p5: 148 163 184;     /* slate-400 */
+  }
+
   html {
     @apply antialiased;
   }
   body {
-    background-color: #0a0f1e;
-    @apply text-gray-100 font-sans m-0;
+    @apply bg-canvas text-fg font-sans m-0;
   }
   * {
     @apply box-border;
   }
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-canvas;
+  }
   ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.1);
-    border-radius: 4px;
+    background: rgb(var(--fg) / 0.12);
+    border-radius: 6px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255,255,255,0.2);
+    background: rgb(var(--fg) / 0.24);
   }
 }
 
 @layer utilities {
   .font-log {
-    font-family: 'Geist Mono', 'JetBrains Mono', 'Fira Code', monospace;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   }
-  .bg-white\/3 { background-color: rgba(255,255,255,0.03); }
-  .bg-white\/4 { background-color: rgba(255,255,255,0.04); }
-  .bg-white\/6 { background-color: rgba(255,255,255,0.06); }
-  .bg-white\/7 { background-color: rgba(255,255,255,0.07); }
-  .bg-white\/8 { background-color: rgba(255,255,255,0.08); }
-  .border-white\/6 { border-color: rgba(255,255,255,0.06); }
+}
+
+/* Theme switches animate colours only, and only after first paint. */
+.theme-ready body,
+.theme-ready aside,
+.theme-ready header {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 @keyframes severity-pulse {
@@ -55,4 +118,9 @@
 }
 .ticker-in {
   animation: ticker-in 0.25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .severity-pulse, .ticker-in { animation: none; }
+  .theme-ready body, .theme-ready aside, .theme-ready header { transition: none; }
 }

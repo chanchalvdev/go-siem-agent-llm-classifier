@@ -29,6 +29,6 @@ describe('Docs', () => {
     render(<Docs />)
     const tocButton = screen.getByRole('button', { name: /Classify your first log/ })
     fireEvent.click(tocButton)
-    expect(tocButton).toHaveClass('text-blue-400')
+    expect(tocButton).toHaveClass('text-accent-text')
   })
 })

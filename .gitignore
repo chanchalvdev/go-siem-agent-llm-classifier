@@ -25,3 +25,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Go build output
+siemagent/bin/
+siemagent/siemagent

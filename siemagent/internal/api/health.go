@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/chverma/siemagent/internal/store"
 )
 
 type healthCache struct {
@@ -20,7 +22,7 @@ var hc = &healthCache{}
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +52,18 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 		checks["llm"] = "ok"
 	}
 
+	// Check the event database when one is configured.
+	if p, ok := s.events.(store.Pinger); ok {
+		dbCtx, dbCancel := context.WithTimeout(r.Context(), 2*time.Second)
+		if err := p.Ping(dbCtx); err != nil {
+			checks["postgres"] = "error: " + err.Error()
+			allOK = false
+		} else {
+			checks["postgres"] = "ok"
+		}
+		dbCancel()
+	}
+
 	// Check Qdrant gRPC port
 	if s.cfg.QdrantAddr != "" {
 		conn, err := net.DialTimeout("tcp", s.cfg.QdrantAddr, 2*time.Second)
@@ -57,7 +71,7 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 			checks["qdrant"] = "error: " + err.Error()
 			allOK = false
 		} else {
-			conn.Close()
+			_ = conn.Close()
 			checks["qdrant"] = "ok"
 		}
 	}

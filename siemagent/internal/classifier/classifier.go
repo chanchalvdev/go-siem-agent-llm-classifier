@@ -118,7 +118,7 @@ func (c *Classifier) ClassifyStream(ctx context.Context, ev models.LogEvent, onC
 		metrics.LLMStreamErrorsTotal.Inc()
 		return models.ClassifiedEvent{}, fmt.Errorf("stream open: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	var sb strings.Builder
 	for {
@@ -186,13 +186,6 @@ func (c *Classifier) indexEvent(ev models.ClassifiedEvent) {
 	if err := c.indexer.Upsert(ctx, id, vec, payload); err != nil {
 		slog.Warn("qdrant upsert failed", "component", "classifier", "error", err)
 	}
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func buildUserMessage(ev models.LogEvent) string {
