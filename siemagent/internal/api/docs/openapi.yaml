@@ -597,6 +597,65 @@ paths:
         "400": {description: Empty or too long}
         "404": {description: Unknown incident}
 
+  /api/incidents/{id}/investigate:
+    post:
+      tags: [Incidents]
+      summary: Run an AI investigation of the whole incident
+      description: |
+        Runs in the background; the write-up streams over /ws/alerts and is
+        saved to the incident history as an "investigation" entry.
+      operationId: investigateIncident
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "202": {description: Started}
+        "404": {description: Unknown incident}
+        "409": {description: An investigation is already running for this incident}
+        "429": {description: Too many investigations in flight; retry later}
+        "503": {description: No LLM agent configured}
+
+  /api/incidents/{id}/report:
+    get:
+      tags: [Incidents]
+      summary: Markdown incident report
+      operationId: getIncidentReport
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+        - {name: download, in: query, description: Serve as an attachment, schema: {type: string, example: "1"}}
+      responses:
+        "200":
+          description: The report
+          content:
+            text/markdown:
+              schema: {type: string}
+        "404": {description: Unknown incident}
+
+  /api/incidents/{id}/feedback:
+    post:
+      tags: [Incidents]
+      summary: Rate the latest AI investigation
+      operationId: rateIncidentInvestigation
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [helpful]
+              properties:
+                helpful: {type: boolean}
+                note: {type: string, maxLength: 5000}
+      responses:
+        "201":
+          description: The recorded rating
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/IncidentActivity"}
+        "400": {description: No investigation to rate, or invalid body}
+        "404": {description: Unknown incident}
+
   # ── Analytics ─────────────────────────────────────────────────────────────────
 
   /api/analytics/summary:
@@ -744,7 +803,7 @@ components:
         incident_id: {type: string}
         at: {type: string, format: date-time}
         actor: {type: string, example: analyst}
-        kind: {type: string, enum: [created, escalated, status, assignee, severity, resolution, comment, investigation]}
+        kind: {type: string, enum: [created, escalated, status, assignee, severity, resolution, comment, investigation, feedback]}
         body: {type: string}
 
     IncidentDetail:

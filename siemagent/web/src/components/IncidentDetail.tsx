@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertTriangle, Bot, CheckCircle2, MessageSquare, PlusCircle, TrendingUp, UserRound, X,
+  AlertTriangle, Bot, CheckCircle2, FileText, MessageSquare, PlusCircle, Sparkles, ThumbsDown, ThumbsUp,
+  TrendingUp, UserRound, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { addIncidentComment, apiError, getIncident, updateIncident } from '../lib/api'
+import {
+  addIncidentComment, apiError, getIncident, investigateIncident, rateInvestigation, updateIncident,
+} from '../lib/api'
 import type {
   IncidentActivity, IncidentAlert, IncidentDetail as Detail, IncidentResolution, IncidentStatus, IncidentUpdate,
 } from '../lib/api'
@@ -12,6 +15,7 @@ import { timeAgo } from '../lib/time'
 import { STATUS_LABELS, entityLabel } from '../lib/incidents'
 import { SeverityBadge } from './SeverityBadge'
 import { KillChain } from './KillChain'
+import { IncidentReport } from './IncidentReport'
 
 const RESOLUTION_LABELS: Record<Exclude<IncidentResolution, ''>, string> = {
   true_positive: 'True positive',
@@ -29,6 +33,7 @@ const ACTIVITY_ICONS: Record<string, LucideIcon> = {
   status: CheckCircle2,
   resolution: CheckCircle2,
   severity: AlertTriangle,
+  feedback: ThumbsUp,
 }
 
 type TimelineItem =
@@ -59,6 +64,7 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
   const { data, isLoading, isError } = useQuery({ queryKey: key, queryFn: () => getIncident(id), refetchInterval: 10_000 })
   const [comment, setComment] = useState('')
   const [assigneeDraft, setAssigneeDraft] = useState<string | null>(null)
+  const [showReport, setShowReport] = useState(false)
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: key })
@@ -66,6 +72,8 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
     qc.invalidateQueries({ queryKey: ['incident-stats'] })
   }
   const update = useMutation({ mutationFn: (u: IncidentUpdate) => updateIncident(id, u), onSuccess: refresh })
+  const investigate = useMutation({ mutationFn: () => investigateIncident(id) })
+  const rate = useMutation({ mutationFn: (helpful: boolean) => rateInvestigation(id, helpful), onSuccess: refresh })
   const addComment = useMutation({
     mutationFn: (body: string) => addIncidentComment(id, body),
     onSuccess: () => { setComment(''); refresh() },
@@ -81,7 +89,8 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
     }
     setAssigneeDraft(null)
   }
-  const error = update.error ?? addComment.error
+  const error = update.error ?? addComment.error ?? investigate.error ?? rate.error
+  const latestInvestigation = [...data.activity].reverse().find((a) => a.kind === 'investigation')
 
   return (
     <article className="p-4 sm:p-6 space-y-5" aria-labelledby="incident-title">
@@ -102,6 +111,28 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
           </button>
         )}
       </header>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => investigate.mutate()}
+          disabled={investigate.isPending}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-strong disabled:opacity-40"
+        >
+          <Sparkles size={14} aria-hidden="true" /> Investigate with AI
+        </button>
+        <button
+          onClick={() => setShowReport(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line-strong px-3 py-1.5 text-sm text-fg hover:bg-fg/4"
+        >
+          <FileText size={14} aria-hidden="true" /> Report
+        </button>
+        {investigate.isSuccess && (
+          <p role="status" className="self-center text-xs text-fg-muted">
+            Investigation started. The write-up appears in the timeline when it finishes.
+          </p>
+        )}
+      </div>
+      {showReport && <IncidentReport id={id} onClose={() => setShowReport(false)} />}
 
       <section aria-label="Case" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <label className="flex flex-col gap-1 text-xs text-fg-muted">
@@ -202,7 +233,13 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
         <ol className="space-y-2" aria-label="Incident timeline">
           {timeline(data).map((item) => item.type === 'alert'
             ? <AlertItem key={item.key} alert={item.alert} />
-            : <ActivityItem key={item.key} activity={item.activity} />)}
+            : (
+              <ActivityItem
+                key={item.key}
+                activity={item.activity}
+                onRate={item.activity.id === latestInvestigation?.id && !rate.isSuccess ? (h) => rate.mutate(h) : undefined}
+              />
+            ))}
         </ol>
       </section>
     </article>
@@ -227,7 +264,7 @@ function AlertItem({ alert }: { alert: IncidentAlert }) {
   )
 }
 
-function ActivityItem({ activity }: { activity: IncidentActivity }) {
+function ActivityItem({ activity, onRate }: { activity: IncidentActivity; onRate?: (helpful: boolean) => void }) {
   const Icon = ACTIVITY_ICONS[activity.kind] ?? MessageSquare
   const long = activity.kind === 'comment' || activity.kind === 'investigation'
   return (
@@ -241,6 +278,17 @@ function ActivityItem({ activity }: { activity: IncidentActivity }) {
           <time dateTime={activity.at}>{timeAgo(activity.at)}</time>
         </p>
         <p className={`mt-0.5 break-words text-sm ${long ? 'whitespace-pre-wrap text-fg' : 'text-fg-muted'}`}>{activity.body}</p>
+        {onRate && (
+          <div className="mt-2 flex items-center gap-2 text-xs text-fg-muted">
+            Was this investigation helpful?
+            <button onClick={() => onRate(true)} className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 hover:border-success/40 hover:text-success">
+              <ThumbsUp size={12} aria-hidden="true" /> Helpful
+            </button>
+            <button onClick={() => onRate(false)} className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 hover:border-danger/40 hover:text-danger">
+              <ThumbsDown size={12} aria-hidden="true" /> Not helpful
+            </button>
+          </div>
+        )}
       </div>
     </li>
   )

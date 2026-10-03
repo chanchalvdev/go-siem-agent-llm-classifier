@@ -29,6 +29,14 @@ var (
 		},
 	)
 
+	AIFeedbackTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ai_investigation_feedback_total",
+			Help: "Analyst ratings of AI investigations, by rating (helpful, unhelpful).",
+		},
+		[]string{"rating"},
+	)
+
 	IncidentsCreatedTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "incidents_created_total",

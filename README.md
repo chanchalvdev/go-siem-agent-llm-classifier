@@ -379,6 +379,9 @@ history. See [docs/INCIDENTS.md](docs/INCIDENTS.md).
 - `GET /api/incidents/{id}`
 - `PATCH /api/incidents/{id}` with `{"status","assignee","severity","resolution"}`
 - `POST /api/incidents/{id}/comments` with `{"body": "..."}`
+- `POST /api/incidents/{id}/investigate`: AI investigation of the whole incident
+- `GET /api/incidents/{id}/report`: Markdown incident report
+- `POST /api/incidents/{id}/feedback` with `{"helpful": true}`
 
 ### `GET /api/search?q=brute+force&limit=10`
 

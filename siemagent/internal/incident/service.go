@@ -264,6 +264,34 @@ func (s *Service) Comment(ctx context.Context, id, actor, body string) (Activity
 	return s.addActivity(ctx, id, Activity{Actor: actor, Kind: ActivityComment, Body: body})
 }
 
+// Feedback records whether the latest AI investigation was helpful. The
+// ratings feed the AI quality metrics and, later, the evaluation set.
+func (s *Service) Feedback(ctx context.Context, id, actor string, helpful bool, note string) (Activity, error) {
+	note = strings.TrimSpace(note)
+	if utf8.RuneCountInString(note) > maxCommentLen {
+		return Activity{}, invalid(fmt.Sprintf("note is longer than %d characters", maxCommentLen))
+	}
+	d, err := s.store.Get(ctx, id)
+	if err != nil {
+		return Activity{}, err
+	}
+	if _, ok := LatestInvestigation(d); !ok {
+		return Activity{}, invalid("this incident has no AI investigation to rate")
+	}
+	rating, body := "unhelpful", "Rated the AI investigation not helpful"
+	if helpful {
+		rating, body = "helpful", "Rated the AI investigation helpful"
+	}
+	if note != "" {
+		body += ": " + note
+	}
+	act, err := s.addActivity(ctx, id, Activity{Actor: actor, Kind: ActivityFeedback, Body: body})
+	if err == nil {
+		metrics.AIFeedbackTotal.WithLabelValues(rating).Inc()
+	}
+	return act, err
+}
+
 // Note records a platform-generated entry (e.g. an AI investigation) in the
 // incident history.
 func (s *Service) Note(ctx context.Context, id, actor, kind, body string) (Activity, error) {

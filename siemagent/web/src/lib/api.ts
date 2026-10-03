@@ -287,7 +287,7 @@ export interface IncidentAlert {
 }
 
 export type ActivityKind =
-  | 'created' | 'status' | 'assignee' | 'severity' | 'comment' | 'escalated' | 'resolution' | 'investigation'
+  | 'created' | 'status' | 'assignee' | 'severity' | 'comment' | 'escalated' | 'resolution' | 'investigation' | 'feedback'
 
 export interface IncidentActivity {
   id: number
@@ -361,4 +361,23 @@ export function apiError(err: unknown): string {
     if (msg) return msg
   }
   return err instanceof Error ? err.message : String(err)
+}
+
+// Starts an AI investigation of the whole incident; the write-up streams over
+// the live alert socket and is saved to the incident timeline.
+export async function investigateIncident(id: string): Promise<void> {
+  await client.post(`/incidents/${encodeURIComponent(id)}/investigate`)
+}
+
+export async function getIncidentReport(id: string): Promise<string> {
+  const { data } = await client.get<string>(`/incidents/${encodeURIComponent(id)}/report`, {
+    responseType: 'text',
+    transformResponse: (d) => d,
+  })
+  return data
+}
+
+export async function rateInvestigation(id: string, helpful: boolean, note = ''): Promise<IncidentActivity> {
+  const { data } = await client.post<IncidentActivity>(`/incidents/${encodeURIComponent(id)}/feedback`, { helpful, note })
+  return data
 }

@@ -39,13 +39,55 @@ As alerts join, the incident keeps:
 Resolved incidents never absorb new alerts: activity after resolution opens a
 new incident, so a re-attack is never hidden inside a closed case.
 
-## AI investigation, once per incident
+## AI investigation of the whole incident
 
-With an LLM configured, the investigation agent runs when an incident **opens
-as P1/P2** or **escalates into P1/P2** — not for every alert, so a
-500-event brute force costs one investigation, not 500. The write-up streams
-live to the dashboard and is saved in the incident timeline as an
-`investigation` entry by `ai-agent`.
+With an LLM configured, the investigation agent runs automatically when an
+incident **opens as P1/P2** or **escalates into P1/P2**, not for every alert,
+so a 500-event brute force costs one investigation, not 500. Click
+**Investigate with AI** (or `POST /api/incidents/{id}/investigate`) to run it
+again at any time, for example after more alerts arrived or you added context
+in a comment. Only one investigation per incident runs at a time, and at most
+four run at once overall.
+
+The agent receives the **whole incident**: title, severity, entities, kill
+chain, the alerts (the first and most recent 40, each raw line capped at 600
+bytes) numbered `A1`, `A2`, … and the latest analyst comments. It can call its
+tools (AbuseIPDB, OTX, similar past events, MITRE lookup) and then writes:
+
+- **Executive Summary**: what happened, how bad, what to do now
+- **Timeline**: citing alerts as `[A1]`, `[A3]`
+- **Impact** and **Root Cause**: based only on the evidence
+- **Recommended Actions**: numbered, most urgent first
+- **Evidence**: the facts and tool results it relied on
+
+Log lines are attacker-controlled, so the prompt tells the model to treat
+alerts and comments strictly as evidence and never follow instructions inside
+them. The write-up streams live to the dashboard and is saved in the timeline
+as an `investigation` entry by `ai-agent`.
+
+### Rating investigations
+
+Under the latest AI investigation, mark it **Helpful** or **Not helpful**
+(`POST /api/incidents/{id}/feedback` with `{"helpful": true, "note": "..."}`).
+Ratings are recorded in the case history and counted in
+`ai_investigation_feedback_total{rating}`, so you can track AI quality over
+time.
+
+## Incident report
+
+**Report** (or `GET /api/incidents/{id}/report`, add `?download=1` for a file)
+produces a self-contained Markdown report for hand-off or post-incident
+review:
+
+1. Case facts: severity, status, resolution, assignee, times, time to resolve, entities
+2. The latest AI investigation (or a factual summary if none ran)
+3. Kill chain checklist and techniques
+4. Every stored alert in a table numbered `A1…`, so the AI's citations can be
+   checked, followed by the raw log lines
+5. The full case history: comments, status changes, investigations
+
+Text from logs, comments and the LLM is escaped so it cannot inject HTML,
+links or remote images into the rendered report.
 
 ## Working a case
 
@@ -72,6 +114,9 @@ time to resolve** (creation to resolution).
 | `GET` | `/api/incidents/{id}` | Incident with alerts and history |
 | `PATCH` | `/api/incidents/{id}` | `{"status","assignee","severity","resolution"}` (any subset) |
 | `POST` | `/api/incidents/{id}/comments` | `{"body": "..."}` |
+| `POST` | `/api/incidents/{id}/investigate` | Start an AI investigation (202; 409 if one is running; 503 without an LLM) |
+| `GET` | `/api/incidents/{id}/report` | Markdown report (`?download=1` for an attachment) |
+| `POST` | `/api/incidents/{id}/feedback` | `{"helpful": true, "note": "..."}` on the latest investigation |
 
 ```bash
 curl -X PATCH -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
@@ -106,3 +151,4 @@ in memory.
 | `incidents_created_total{severity}` | Incidents opened |
 | `incident_alerts_correlated_total` | Alerts that joined an existing incident |
 | `incidents_resolved_total{resolution}` | Incidents resolved |
+| `ai_investigation_feedback_total{rating}` | Analyst ratings of AI investigations |

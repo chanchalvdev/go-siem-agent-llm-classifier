@@ -35,6 +35,9 @@ const api = vi.hoisted(() => ({
   getIncident: vi.fn(),
   updateIncident: vi.fn(),
   addIncidentComment: vi.fn(),
+  investigateIncident: vi.fn(),
+  getIncidentReport: vi.fn(),
+  rateInvestigation: vi.fn(),
   apiError: (e: unknown) => (e instanceof Error ? e.message : String(e)),
 }))
 vi.mock('../lib/api', () => api)
@@ -50,6 +53,9 @@ beforeEach(() => {
   api.getIncidentStats.mockResolvedValue(stats)
   api.getIncident.mockResolvedValue(detail)
   api.updateIncident.mockResolvedValue({ ...open, status: 'investigating' })
+  api.investigateIncident.mockResolvedValue(undefined)
+  api.getIncidentReport.mockResolvedValue('# Incident report: SSH Brute Force\n\n## AI investigation')
+  api.rateInvestigation.mockResolvedValue({ id: 10, incident_id: open.id, at: now, actor: 'analyst', kind: 'feedback', body: 'x' })
   api.addIncidentComment.mockResolvedValue({ id: 9, incident_id: open.id, at: now, actor: 'analyst', kind: 'comment', body: 'x' })
 })
 
@@ -113,5 +119,34 @@ describe('Incidents page', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'ip:203.0.113.7' }))
     await waitFor(() => expect(api.listIncidents).toHaveBeenCalledWith(expect.objectContaining({ entity: 'ip:203.0.113.7' })))
     expect(screen.getByRole('button', { name: 'Clear filter ip:203.0.113.7' })).toBeInTheDocument()
+  })
+})
+
+describe('Incident AI actions', () => {
+  it('starts an investigation on demand', async () => {
+    renderWithQuery(<Incidents />)
+    fireEvent.click(await screen.findByText(open.title))
+    fireEvent.click(await screen.findByRole('button', { name: 'Investigate with AI' }))
+    await waitFor(() => expect(api.investigateIncident).toHaveBeenCalledWith(open.id))
+    expect(await screen.findByRole('status')).toHaveTextContent('Investigation started')
+  })
+
+  it('previews the report', async () => {
+    renderWithQuery(<Incidents />)
+    fireEvent.click(await screen.findByText(open.title))
+    fireEvent.click(await screen.findByRole('button', { name: 'Report' }))
+    const dialog = await screen.findByRole('dialog', { name: `Incident report · ${open.id}` })
+    expect(await within(dialog).findByText(/# Incident report: SSH Brute Force/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Download .md' })).toBeEnabled()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close report' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('rates the latest AI investigation', async () => {
+    renderWithQuery(<Incidents />)
+    fireEvent.click(await screen.findByText(open.title))
+    fireEvent.click(await screen.findByRole('button', { name: 'Not helpful' }))
+    await waitFor(() => expect(api.rateInvestigation).toHaveBeenCalledWith(open.id, false))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Not helpful' })).not.toBeInTheDocument())
   })
 })

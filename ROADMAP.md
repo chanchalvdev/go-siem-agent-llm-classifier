@@ -39,7 +39,7 @@ project's LLM agent stands out, so the platform is built around it.
 | 4 | Platform foundations | ✅ Done |
 | 5 | Detection engine | 🚧 In progress |
 | 6 | Incidents and case management | 🚧 Core done (attachments, suppression open) |
-| 7 | AI investigation 2.0 | Planned |
+| 7 | AI investigation 2.0 | 🚧 In progress |
 | 8 | Response and automation | Planned |
 | 9 | Multi-user, RBAC and multi-tenancy | Planned |
 | 10 | Advanced analytics and hunting | Planned |
@@ -103,18 +103,19 @@ Analysts work incidents, not log lines. See [docs/INCIDENTS.md](docs/INCIDENTS.m
 
 Turn the existing agent into an analyst that works on whole incidents.
 
-- [ ] **Incident-level investigation** — the agent investigates the
+- [x] **Incident-level investigation** — the agent investigates the
       correlated incident, not just a single event
 - [ ] **Natural-language hunting** — "failed logins from new countries this
       week" becomes a query over stored events, with the generated query shown
-- [ ] **Investigation reports** — executive summary, timeline, impact, root
-      cause and recommended actions, exportable as Markdown/PDF
-- [ ] **Analyst feedback loop** — mark a verdict right or wrong; feedback
-      tunes prompts and suppressions and feeds the evaluation set
+- [x] **Investigation reports** — executive summary, timeline, impact, root
+      cause and recommended actions, exportable as Markdown (PDF still open)
+- [x] **Analyst feedback** — rate each AI investigation helpful or not
+- [ ] **Feedback loop** — feedback tunes prompts and suppressions and feeds
+      the evaluation set
 - [ ] **More enrichment tools** — VirusTotal, Shodan, GreyNoise, WHOIS,
       passive DNS, internal asset inventory lookups
-- [ ] **Explainability** — every AI verdict cites the events and tool results
-      it relied on
+- [x] **Explainability** — investigations cite the alerts ([A1]…) and tool
+      results they relied on; reports list the cited alerts
 
 ## Phase 8 — Response and automation (SOAR)
 
