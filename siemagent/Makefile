@@ -99,7 +99,7 @@ setup:
 	@mkdir -p bin
 	@if [ ! -f .env ]; then \
 	  cp .env.example .env; \
-	  echo "Created .env — fill in KIMCHI_API_KEY before running"; \
+	  echo "Created .env — fill in GEMINI_API_KEY before running"; \
 	else \
 	  echo ".env already exists, skipping"; \
 	fi
@@ -153,8 +153,8 @@ check-env:
 	@if [ ! -f .env ]; then \
 	  echo "ERROR: .env file not found. Run 'make setup' first."; exit 1; \
 	fi
-	@if [ -z "$$(grep -E '^KIMCHI_API_KEY=.+' .env 2>/dev/null)" ]; then \
-	  echo "ERROR: KIMCHI_API_KEY is not set in .env"; exit 1; \
+	@if [ -z "$$(grep -E '^(GEMINI|KIMCHI|OPENAI)_API_KEY=.+' .env 2>/dev/null)" ]; then \
+	  echo "ERROR: set GEMINI_API_KEY (or KIMCHI_API_KEY) in .env"; exit 1; \
 	fi
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
