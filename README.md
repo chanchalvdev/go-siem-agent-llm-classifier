@@ -12,6 +12,28 @@ Where it is heading — detection rules, incident correlation, automated respons
 
 ---
 
+## Try it in one command
+
+You need Docker. No API key, no setup:
+
+```bash
+git clone https://github.com/chanchalvdev/go-siem-agent-llm-classifier.git
+cd go-siem-agent-llm-classifier
+make demo        # or: docker compose -f siemagent/demo/compose.yml up -d --build --wait
+```
+
+Open **http://localhost:3000** and sign in as `admin` / `siemagent-demo`. A
+prepared attack (SSH brute force → root shell, a port scan, ransomware deleting
+shadow copies) is replayed on first start, so there are already three incidents,
+a kill chain and response actions waiting for approval. Approve the IP block and
+watch it arrive at the stand-in firewall: `docker compose -f siemagent/demo/compose.yml logs webhook`.
+
+The demo runs **rules-only** (`LLM_PROVIDER=none`). For AI classification and
+investigations, start it with a key: `LLM_PROVIDER=gemini GEMINI_API_KEY=... make demo`.
+Stop with `make demo-down`. Demo only: fixed password, no TLS.
+
+---
+
 ## What It Does
 
 Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Event, etc.) and the agent:
@@ -250,7 +272,7 @@ Dashboard available at **http://localhost:5173**
 
 | Variable | Description | Default |
 |---|---|---|
-| `LLM_PROVIDER` | `gemini`, `ollama` or `openai` (OpenAI-compatible) | auto: `gemini` if `GEMINI_API_KEY` is set |
+| `LLM_PROVIDER` | `gemini`, `ollama`, `openai` (OpenAI-compatible) or `none` (rules only, no AI) | auto: `gemini` if `GEMINI_API_KEY` is set |
 | `GEMINI_API_KEY` | Gemini API key | — |
 | `GEMINI_MODEL` | Gemini model | `gemini-3.8-flash` |
 | `OLLAMA_MODEL` | Local chat model when `LLM_PROVIDER=ollama` | `llama3.2` |
@@ -268,6 +290,7 @@ Dashboard available at **http://localhost:5173**
 | `DETECTION_MODE` | `rules-first`, `enrich` or `off` ([docs/DETECTION.md](docs/DETECTION.md)) | `rules-first` |
 | `SIGMA_RULES_DIR` | Extra Sigma rules folder, searched recursively | — |
 | `SYSLOG_UDP_ADDR` / `SYSLOG_TCP_ADDR` | Syslog listener addresses, e.g. `:5514` | disabled |
+| `SEED_LOG_FILE` | Log file replayed through the pipeline on first start, when no events are stored (demos) | — |
 | `CONDUCTOR_PORT` | HTTP server port | `8080` |
 | `ALLOWED_ORIGIN` | CORS origin | `http://localhost:5173` |
 | `QDRANT_ADDR` | Qdrant gRPC address | `localhost:6334` |

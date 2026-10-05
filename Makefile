@@ -5,7 +5,7 @@ APP := siemagent
 WEB := $(APP)/web
 
 .PHONY: help hooks quality-gate quality-go quality-web test test-integration lint \
-        build dev serve docker-up docker-down pull-models seed setup
+        build dev serve docker-up docker-down pull-models seed setup demo demo-down demo-test
 
 help:
 	@echo "make hooks             Install git hooks (.githooks/)"
@@ -15,6 +15,7 @@ help:
 	@echo "make lint              go vet + golangci-lint + oxlint"
 	@echo "make dev               Backend :8080 + dashboard :5173"
 	@echo "make docker-up         Start Qdrant, Ollama and Postgres"
+	@echo "make demo              One-command demo at http://localhost:3000 (no API key needed)"
 	@echo "Other targets: build serve docker-down pull-models seed setup"
 
 hooks:
@@ -39,7 +40,23 @@ test:
 test-integration:
 	cd $(APP) && \
 	  POSTGRES_TEST_DSN=$${POSTGRES_TEST_DSN:-postgres://siemagent:siemagent@localhost:5433/siemagent?sslmode=disable} \
-	  go test -race -tags integration -timeout 180s ./internal/store/... ./internal/incident/... ./internal/response/... ./internal/auth/... ./pkg/qdrant/...
+	  go test -race -tags integration -timeout 180s ./internal/... ./pkg/qdrant/...
+
+DEMO := docker compose -f $(APP)/demo/compose.yml
+
+demo:
+	$(DEMO) up -d --build --wait
+	@echo ""
+	@echo "SIEMAgent demo: http://localhost:3000  (sign in as admin / siemagent-demo)"
+	@echo "API docs:       http://localhost:8080/docs"
+	@echo "Actions sent:   $(DEMO) logs -f webhook"
+	@echo "Stop:           make demo-down   (add -v to the command to wipe data)"
+
+demo-down:
+	$(DEMO) down
+
+demo-test:
+	bash $(APP)/demo/smoke-test.sh
 
 lint:
 	cd $(APP) && go vet ./... && golangci-lint run --build-tags integration ./...

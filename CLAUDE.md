@@ -213,3 +213,4 @@ make seed                # POST 10 sample events to /classify
 | 2026-10 | Versioned SQL migrations in `internal/migrate`, no third-party tool | Embedded, checksummed, advisory-locked; edited or newer-than-binary schemas fail start-up |
 | 2026-10 | Retention off by default; purges only resolved incidents, in batches | Never delete data nobody asked to delete; open cases are evidence |
 | 2026-10 | Suppressed events are stored, not dropped; hit counts in memory | Keeps the record for hunting; a noisy source must not cost a database write per event |
+| 2026-10 | `LLM_PROVIDER=none` rules-only mode; demo seeds from `SEED_LOG_FILE` | A first look must not need an API key; the demo is smoke-tested in CI so it cannot rot |

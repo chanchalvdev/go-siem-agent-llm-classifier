@@ -25,6 +25,17 @@ make test-integration    # store, incident, response and auth contracts on Postg
 
 ## Hands-on walkthrough
 
+**Quickest path:** `make demo` starts Postgres, the API, the dashboard and a
+stand-in containment webhook in Docker, replays the attack scenario below on
+first start, and needs no API key (rules-only mode). Sign in at
+http://localhost:3000 as `admin` / `siemagent-demo` and jump to step 4.
+`make demo-test` checks a fresh demo end to end (CI runs it on every pull
+request). In rules-only mode the lines no rule matches are stored as
+*Unclassified* (P5) and there is no AI investigation; everything else below
+behaves the same.
+
+The steps below run the platform from source instead.
+
 ### 1. Start the platform
 
 In `siemagent/.env` set an LLM (e.g. `GEMINI_API_KEY`, or `LLM_PROVIDER=ollama`)

@@ -35,6 +35,14 @@ Each event records what produced the verdict in `classified_by` (`rules`,
 marks rule verdicts with a **Rule** badge and lists matched rules in the
 event detail.
 
+## Rules-only mode
+
+With `LLM_PROVIDER=none` there is no LLM at all: rules classify what they
+match, everything else is stored as *Unclassified* (P5), and AI investigations
+are off. It needs no API key and sends nothing anywhere, which suits the demo,
+air-gapped sites and anyone evaluating the rules. It requires
+`DETECTION_MODE=rules-first` (the default).
+
 ## Rules that ship with SIEMAgent
 
 The built-in pack lives in `siemagent/internal/detection/rules/` and is

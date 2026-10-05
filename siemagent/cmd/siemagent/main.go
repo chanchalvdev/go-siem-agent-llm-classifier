@@ -145,6 +145,10 @@ func buildDetection(cfg config.Config, cls *classifier.Classifier) (classifier.I
 	}
 	slog.Info("detection rules loaded", "component", "main", "mode", mode,
 		"rules", len(engine.Rules()), "skipped_unsupported", unsupported)
+	if cfg.Provider == config.ProviderNone {
+		slog.Info("rules-only mode: events no rule matches are stored as Unclassified; AI investigation is off", "component", "main")
+		return detection.NewClassifier(nil, engine, mode, cls.Index), engine
+	}
 	return detection.NewClassifier(cls, engine, mode, cls.Index), engine
 }
 
@@ -219,8 +223,11 @@ func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.
 			api.WithUsers(newAuthService(ctx, cfg, auth.NewMemory())), api.WithSuppressions(newSuppressions(ctx, suppression.NewMemory())))
 	}
 
-	// Live incident stream: tool registry + WebSocket hub.
-	opts = append(opts, api.WithAgent(buildHub(), cls.OpenAIClient(), cfg.ModelName, reg))
+	// Live incident stream: tool registry + WebSocket hub. Rules-only mode
+	// has no LLM to investigate with.
+	if cfg.Provider != config.ProviderNone {
+		opts = append(opts, api.WithAgent(buildHub(), cls.OpenAIClient(), cfg.ModelName, reg))
+	}
 
 	if engine != nil {
 		opts = append(opts, api.WithDetections(engine))
@@ -256,6 +263,10 @@ func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.
 		}
 	}()
 
+	if cfg.SeedLogFile != "" {
+		go seed(ctx, srv, cfg.SeedLogFile)
+	}
+
 	if err := srv.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		fmt.Fprintf(os.Stderr, "server: %v\n", err)
 		os.Exit(1)
@@ -277,6 +288,21 @@ func newIncidentService(cfg config.Config, st incident.Store) *incident.Service 
 }
 
 // newAuthService opens the account store and creates the bootstrap admin.
+// seed replays SEED_LOG_FILE once the server is up, if no events exist yet.
+func seed(ctx context.Context, srv *api.Server, path string) {
+	start := time.Now()
+	n, err := srv.Seed(ctx, path)
+	switch {
+	case err != nil:
+		slog.Error("seeding failed", "component", "main", "file", path, "error", err)
+	case n == 0:
+		slog.Info("seed skipped: events already stored", "component", "main", "file", path)
+	default:
+		slog.Info("seeded demo events", "component", "main", "file", path, "events", n,
+			"duration_ms", time.Since(start).Milliseconds())
+	}
+}
+
 // newSuppressions loads the alert suppressions; failing to read them is fatal
 // because silently dropping every snooze would flood analysts.
 func newSuppressions(ctx context.Context, st suppression.Store) *suppression.Service {

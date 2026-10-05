@@ -243,3 +243,18 @@ func TestRetentionSettings(t *testing.T) {
 		})
 	}
 }
+
+func TestRulesOnlyProvider(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("LLM_PROVIDER", "none")
+	cfg := Load()
+	if cfg.Provider != ProviderNone || cfg.APIKey != "" || cfg.Validate() != nil {
+		t.Fatalf("none needs no key: %+v %v", cfg, cfg.Validate())
+	}
+	for _, mode := range []string{"off", "enrich"} {
+		t.Setenv("DETECTION_MODE", mode)
+		if err := Load().Validate(); err == nil || !strings.Contains(err.Error(), "rules-first") {
+			t.Fatalf("DETECTION_MODE=%s without an LLM: %v", mode, err)
+		}
+	}
+}

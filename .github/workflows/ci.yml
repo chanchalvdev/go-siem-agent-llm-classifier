@@ -77,7 +77,7 @@ jobs:
         env:
           POSTGRES_TEST_DSN: postgres://siemagent:siemagent@localhost:5432/siemagent?sslmode=disable
           QDRANT_TEST_HOST: localhost:6334
-        run: go test -race -tags integration -timeout 180s ./internal/migrate/... ./internal/store/... ./internal/incident/... ./internal/response/... ./internal/auth/... ./pkg/qdrant/...
+        run: go test -race -tags integration -timeout 180s ./internal/... ./pkg/qdrant/...
 
   web:
     name: Web (lint, typecheck, test, build)
@@ -97,3 +97,20 @@ jobs:
       - run: npx tsc -b
       - run: npm test
       - run: npx vite build
+
+  demo:
+    name: One-command demo (docker compose smoke test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: make demo
+        run: make demo
+      - name: Smoke test
+        run: bash siemagent/demo/smoke-test.sh
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f siemagent/demo/compose.yml logs --no-color
+      - name: Tear down
+        if: always()
+        run: docker compose -f siemagent/demo/compose.yml down -v
