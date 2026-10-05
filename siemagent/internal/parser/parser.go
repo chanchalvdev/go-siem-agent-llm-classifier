@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/chverma/siemagent/internal/models"
+	"github.com/chverma/siemagent/internal/normalize"
 )
 
 // rfc5424RE matches RFC 5424 syslog lines.
@@ -45,33 +46,36 @@ func (p *Parser) ParseLineWithFormat(line, format string) []models.LogEvent {
 	if line == "" {
 		return nil
 	}
+	ev := p.parseFormat(line, format)
+	normalize.Event(&ev)
+	return []models.LogEvent{ev}
+}
 
+func (p *Parser) parseFormat(line, format string) models.LogEvent {
 	switch format {
 	case "syslog":
 		if ev, ok := p.parseRFC5424(line); ok {
-			return []models.LogEvent{ev}
+			return ev
 		}
 		if ev, ok := p.parseRFC3164(line); ok {
-			return []models.LogEvent{ev}
+			return ev
 		}
-		return []models.LogEvent{p.ParseRaw(line)}
 	case "json":
 		if ev, ok := p.parseJSON(line); ok {
-			return []models.LogEvent{ev}
+			return ev
 		}
-		return []models.LogEvent{p.ParseRaw(line)}
 	default: // "auto"
 		if ev, ok := p.parseRFC5424(line); ok {
-			return []models.LogEvent{ev}
+			return ev
 		}
 		if ev, ok := p.parseRFC3164(line); ok {
-			return []models.LogEvent{ev}
+			return ev
 		}
 		if ev, ok := p.parseJSON(line); ok {
-			return []models.LogEvent{ev}
+			return ev
 		}
-		return []models.LogEvent{p.ParseRaw(line)}
 	}
+	return p.raw(line)
 }
 
 func (p *Parser) parseRFC5424(line string) (models.LogEvent, bool) {
@@ -176,6 +180,12 @@ func (p *Parser) parseJSON(line string) (models.LogEvent, bool) {
 
 // ParseRaw creates a raw log event with no parsing.
 func (p *Parser) ParseRaw(line string) models.LogEvent {
+	ev := p.raw(line)
+	normalize.Event(&ev)
+	return ev
+}
+
+func (p *Parser) raw(line string) models.LogEvent {
 	return models.LogEvent{
 		Raw:       line,
 		Timestamp: time.Now().UTC(),

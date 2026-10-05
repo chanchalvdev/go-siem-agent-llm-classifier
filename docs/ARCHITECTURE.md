@@ -53,6 +53,7 @@ flowchart LR
 |---|---|
 | `internal/ingest` | Syslog UDP/TCP listener; sheds load instead of blocking senders |
 | `internal/parser` | RFC 5424, RFC 3164 (with or without `<PRI>`), rsyslog ISO timestamps, JSON, raw fallback |
+| `internal/normalize` | Common field schema (ECS subset) filled from JSON keys and text formats |
 | `internal/detection` | Sigma rules (single-event and `count()` thresholds), entity extraction (`src_ip`, `user`, `dst_port`), rule verdicts |
 | `internal/classifier` | LLM classification with MITRE mapping; embeds events into Qdrant |
 | `internal/store` | Event history and rule on/off state (Postgres or memory) |
@@ -82,6 +83,10 @@ Logs arrive three ways, all ending in the same `record()` path:
 
 `parser` turns the line into a `LogEvent`: timestamp, hostname, app, PID,
 message and source format. A line no format matches is kept as `raw`.
+`normalize` then fills the event's `fields` with common names (`source.ip`,
+`user.name`, `event.outcome`, …) from JSON keys and known text formats, so
+rules and correlation work the same for every source. See
+[FIELDS.md](FIELDS.md).
 
 ### 3. Detect (rules first)
 

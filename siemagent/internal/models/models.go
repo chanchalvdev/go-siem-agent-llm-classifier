@@ -20,6 +20,9 @@ type LogEvent struct {
 	ProcID    string    `json:"proc_id,omitempty"`
 	Message   string    `json:"message"`
 	Source    string    `json:"source"` // "syslog" | "json" | "raw"
+	// Fields holds normalised values under common (ECS-style) names such as
+	// source.ip, user.name and event.outcome; see internal/normalize.
+	Fields map[string]string `json:"fields,omitempty"`
 }
 
 type MITREInfo struct {

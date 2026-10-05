@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/chverma/siemagent/internal/models"
+	"github.com/chverma/siemagent/internal/normalize"
 )
 
 // fields is the searchable view of one event: named values (lower-case keys)
@@ -45,15 +46,23 @@ func eventFields(ev models.LogEvent) fields {
 	if text == "" {
 		text = ev.Message
 	}
-	for k, v := range extractEntities(text) {
+	for k, v := range Entities(ev) {
 		canonical[k] = v
 	}
-	values := make(map[string]string, 32)
+	values := make(map[string]string, 64)
 	for key, aliases := range fieldAliases {
 		if v := canonical[key]; v != "" {
 			for _, a := range aliases {
 				values[a] = v
 			}
+		}
+	}
+	// Normalised fields under their schema names (source.ip, user.name, …)
+	// and the names Sigma rules use for them (SourceIp, CommandLine, …).
+	for k, v := range ev.Fields {
+		values[k] = v
+		for _, a := range normalize.SigmaAliases[k] {
+			values[a] = v
 		}
 	}
 
@@ -145,13 +154,20 @@ func firstSubmatch(res []*regexp.Regexp, text string) string {
 	return ""
 }
 
-// Entities returns the source IP, user and destination port found in an
-// event's text, keyed "src_ip", "user" and "dst_port". Used by incident
-// correlation to group alerts that share an actor.
+// Entities returns an event's source IP, user and destination port, keyed
+// "src_ip", "user" and "dst_port". Used by incident correlation to group
+// alerts that share an actor. Normalised fields win; text patterns fill in
+// for events that were not normalised (e.g. stored before normalisation).
 func Entities(ev models.LogEvent) map[string]string {
 	text := ev.Raw
 	if text == "" {
 		text = ev.Message
 	}
-	return extractEntities(text)
+	out := extractEntities(text)
+	for key, field := range map[string]string{"src_ip": "source.ip", "user": "user.name", "dst_port": "destination.port"} {
+		if v := ev.Fields[field]; v != "" {
+			out[key] = v
+		}
+	}
+	return out
 }

@@ -216,3 +216,4 @@ make seed                # POST 10 sample events to /classify
 | 2026-10 | `LLM_PROVIDER=none` rules-only mode; demo seeds from `SEED_LOG_FILE` | A first look must not need an API key; the demo is smoke-tested in CI so it cannot rot |
 | 2026-10 | IOC matching in-process (hash maps + per-prefix maps), feeds in memory | Constant-time lookups on every event with no extra service; a failed feed download keeps the last good list |
 | 2026-10 | MTTD from the log time of the opening alert, only when within 24h; MTTA on first assign/status change | Replays and forged timestamps must not distort metrics; a comment is not taking ownership |
+| 2026-10 | Normalised fields are an ECS subset in `LogEvent.Fields`, parser values first | One schema for rules, correlation and hunting; ECS names are what analysts and Sigma users already know |

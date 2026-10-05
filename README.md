@@ -56,6 +56,7 @@ Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Ev
 
 **Detect**
 - **Sigma detection rules**: a built-in rule pack plus any Sigma rules you add (e.g. SigmaHQ); rule matches skip the LLM, cutting cost and latency ([docs/DETECTION.md](docs/DETECTION.md))
+- **Field normalisation**: every event gets common fields (`source.ip`, `user.name`, `event.outcome`, …) so one rule works across sources ([docs/FIELDS.md](docs/FIELDS.md))
 - **Threshold rules**: `count() by src_ip >= 10` over a time window catches brute force, password spraying, web scans and port scans
 - **Rule management**: enable or disable rules from the dashboard, with hit counts
 - **IOC watchlists**: known-bad IPs, ranges, domains and hashes from threat feeds, files or analysts raise matching events instantly ([docs/WATCHLISTS.md](docs/WATCHLISTS.md))
