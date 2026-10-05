@@ -17,6 +17,10 @@ All notable changes to this project are documented here. The format follows
 - SOC metrics page and `GET /api/soc/metrics`: time to detect, acknowledge
   and resolve (median, mean, p90), daily alerts and incidents, backlog
   ageing, false-positive rate, top attack types and analyst workload.
+- Field normalisation: every event carries `fields` under ECS-style names
+  (`source.ip`, `user.name`, `event.outcome`, `process.command_line`, …),
+  filled from JSON keys and sshd, sudo, firewall, web-access and key=value
+  logs. Sigma rules can use these names or their usual Sigma field names.
 
 ## [0.1.0] - unreleased
 

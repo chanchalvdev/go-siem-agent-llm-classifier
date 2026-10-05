@@ -121,6 +121,11 @@ loaded wins (built-in rules load first).
 
 ## Writing a rule
 
+Rules can match the normalised fields every event carries (`source.ip`,
+`user.name`, `event.outcome`, …) as well as Sigma's usual field names; see
+[FIELDS.md](FIELDS.md).
+
+
 ```yaml
 title: Download Piped Into a Shell
 id: e7b7df78-a5d8-47d2-9337-73586ff6fedb   # unique; generate with uuidgen

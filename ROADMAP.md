@@ -67,9 +67,9 @@ Catch known-bad activity with rules, so the LLM is reserved for what rules miss.
 - [x] **Sigma rule engine** — load community [Sigma](https://github.com/SigmaHQ/sigma)
       rules (3,000+) and evaluate them against every event
       (see [docs/DETECTION.md](docs/DETECTION.md))
-- [ ] **Field normalisation** — map parsed logs onto a common schema
-      (ECS or OCSF) so one rule works across log sources (`src_ip`, `user`
-      and `dst_port` are extracted today)
+- [x] **Field normalisation** — events carry ECS-style fields (`source.ip`,
+      `user.name`, `event.outcome`, …) so one rule works across log sources
+      (see [docs/FIELDS.md](docs/FIELDS.md))
 - [x] **Rule-first pipeline** — rule matches create alerts directly; only
       unmatched or ambiguous events go to the LLM (big cost/latency reduction)
 - [x] **Detection-as-code** — custom rules in git, with tests that replay

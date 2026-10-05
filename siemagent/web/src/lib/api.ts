@@ -11,6 +11,8 @@ export interface LogEvent {
   proc_id?: string
   message: string
   source: 'syslog' | 'json' | 'raw'
+  /** Normalised values under common names: source.ip, user.name, event.outcome, … */
+  fields?: Record<string, string>
 }
 
 export interface MITREInfo {

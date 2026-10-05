@@ -1567,6 +1567,11 @@ components:
           type: string
           enum: [syslog, json, raw]
           example: syslog
+        fields:
+          type: object
+          description: Normalised values under common ECS-style names (see docs/FIELDS.md)
+          additionalProperties: {type: string}
+          example: {"event.category": "authentication", "event.outcome": "failure", "user.name": "root", "source.ip": "192.168.1.100"}
 
     MITREInfo:
       type: object

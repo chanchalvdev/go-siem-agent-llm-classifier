@@ -25,6 +25,7 @@ import { Metrics } from './Metrics'
 import { useAuth } from '../auth/auth'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { DetectionList } from '../components/DetectionList'
+import { EventFields } from '../components/EventFields'
 
 const ALL_SEVERITIES: Severity[] = ['P1', 'P2', 'P3', 'P4', 'P5']
 const EVENTS_KEY = 'classified-events'
@@ -524,6 +525,8 @@ function DetailPanel({ event, onClose }: { event: ClassifiedEvent; onClose: () =
           )}
         </div>
       )}
+
+      <EventFields fields={event.event.fields} />
 
       {/* Raw log */}
       <div>
