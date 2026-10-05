@@ -20,6 +20,8 @@ export interface ChartColors {
   tooltipText: string
   severity: Record<'P1' | 'P2' | 'P3' | 'P4' | 'P5', string>
   series: string[]
+  /** Two-series pair checked for colour-blind separation in this theme. */
+  pair: [string, string]
 }
 
 export function useChartColors(): ChartColors {
@@ -44,6 +46,9 @@ export function useChartColors(): ChartColors {
       series: dark
         ? ['#60a5fa', '#a78bfa', '#f472b6', '#f87171', '#fb923c', '#facc15', '#34d399', '#22d3ee']
         : ['#2563eb', '#7c3aed', '#db2777', '#dc2626', '#ea580c', '#ca8a04', '#059669', '#0891b2'],
+      // Blue/orange: passes the CVD and lightness checks on each surface
+      // (blue and violet from the series above do not separate for deutans).
+      pair: dark ? ['#3b82f6', '#ea580c'] : ['#2563eb', '#ea580c'],
     }
     // `resolved` is the trigger: the class on <html> has already changed.
   }, [resolved])

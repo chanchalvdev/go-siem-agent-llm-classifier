@@ -693,3 +693,43 @@ export async function lookupIOC(value: string): Promise<IOCLookupResult[]> {
   const { data } = await client.get<IOCLookupResult[]>('/ioc/lookup', { params: { value } })
   return data
 }
+
+export interface DurationStats {
+  samples: number
+  mean_seconds: number | null
+  median_seconds: number | null
+  p90_seconds: number | null
+}
+
+export interface SOCMetrics {
+  days: number
+  since: string
+  generated_at: string
+  incidents_opened: number
+  incidents_resolved: number
+  open_now: number
+  unassigned_open: number
+  open_over_24h: number
+  mttd: DurationStats
+  mtta: DurationStats
+  mttr: DurationStats
+  false_positive_rate: number | null
+  opened_by_severity: Record<string, number>
+  by_resolution: Record<string, number>
+  top_attack_types: { name: string; count: number }[]
+  daily: {
+    day: string
+    events: number
+    alerts: number
+    suppressed: number
+    incidents_opened: number
+    incidents_resolved: number
+  }[]
+  workload: { name: string; open: number; resolved: number; mttr: DurationStats }[]
+  event_totals: { events: number; alerts: number; suppressed: number }
+}
+
+export async function getSOCMetrics(days: number): Promise<SOCMetrics> {
+  const { data } = await client.get<SOCMetrics>('/soc/metrics', { params: { days } })
+  return data
+}

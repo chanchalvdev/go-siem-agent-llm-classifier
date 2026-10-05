@@ -14,6 +14,9 @@ All notable changes to this project are documented here. The format follows
   A match adds a detection, raises the severity and can open an incident.
   Includes a Watchlists page, indicator lookup and the demo flags the
   brute-force source as a Tor exit.
+- SOC metrics page and `GET /api/soc/metrics`: time to detect, acknowledge
+  and resolve (median, mean, p90), daily alerts and incidents, backlog
+  ageing, false-positive rate, top attack types and analyst workload.
 
 ## [0.1.0] - unreleased
 

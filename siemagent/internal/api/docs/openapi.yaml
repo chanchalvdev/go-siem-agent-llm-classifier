@@ -537,6 +537,66 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/IncidentStats"}
 
+  /api/soc/metrics:
+    get:
+      tags: [Incidents]
+      summary: SOC metrics
+      description: |
+        Time to detect, acknowledge and resolve (median, mean, p90 in seconds),
+        daily alert and incident volume, backlog, false-positive rate, top
+        attack types and analyst workload for the last `days` days (UTC).
+      operationId: getSOCMetrics
+      parameters:
+        - {name: days, in: query, schema: {type: integer, minimum: 1, maximum: 365, default: 30}}
+      responses:
+        "200":
+          description: Metrics report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  days: {type: integer}
+                  since: {type: string, format: date-time}
+                  incidents_opened: {type: integer}
+                  incidents_resolved: {type: integer}
+                  open_now: {type: integer}
+                  unassigned_open: {type: integer}
+                  open_over_24h: {type: integer}
+                  mttd: {$ref: "#/components/schemas/DurationStats"}
+                  mtta: {$ref: "#/components/schemas/DurationStats"}
+                  mttr: {$ref: "#/components/schemas/DurationStats"}
+                  false_positive_rate: {type: number, nullable: true}
+                  opened_by_severity: {type: object, additionalProperties: {type: integer}}
+                  by_resolution: {type: object, additionalProperties: {type: integer}}
+                  top_attack_types:
+                    type: array
+                    items: {type: object, properties: {name: {type: string}, count: {type: integer}}}
+                  daily:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        day: {type: string, example: "2026-10-05"}
+                        events: {type: integer}
+                        alerts: {type: integer}
+                        suppressed: {type: integer}
+                        incidents_opened: {type: integer}
+                        incidents_resolved: {type: integer}
+                  workload:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: {type: string}
+                        open: {type: integer}
+                        resolved: {type: integer}
+                        mttr: {$ref: "#/components/schemas/DurationStats"}
+                  event_totals:
+                    type: object
+                    properties: {events: {type: integer}, alerts: {type: integer}, suppressed: {type: integer}}
+        "400": {description: days out of range}
+
   /api/incidents/{id}:
     parameters:
       - {name: id, in: path, required: true, schema: {type: string, example: INC-2EA4C98D}}
@@ -1255,6 +1315,14 @@ components:
         disabled: {type: boolean}
         created_at: {type: string, format: date-time}
         last_login_at: {type: string, format: date-time}
+
+    DurationStats:
+      type: object
+      properties:
+        samples: {type: integer}
+        mean_seconds: {type: number, nullable: true}
+        median_seconds: {type: number, nullable: true}
+        p90_seconds: {type: number, nullable: true}
 
     Watchlist:
       type: object

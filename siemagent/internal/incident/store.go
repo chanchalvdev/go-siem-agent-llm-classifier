@@ -130,6 +130,10 @@ func matchFilter(inc Incident, f Filter) bool {
 	if f.Entity != nil && !shares(inc.Entities, []Entity{*f.Entity}) {
 		return false
 	}
+	if !f.ActiveSince.IsZero() && inc.CreatedAt.Before(f.ActiveSince) && !inc.Open() &&
+		(inc.ResolvedAt == nil || inc.ResolvedAt.Before(f.ActiveSince)) {
+		return false
+	}
 	return true
 }
 

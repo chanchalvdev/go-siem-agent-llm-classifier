@@ -86,6 +86,13 @@ type Incident struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
+	// OccurredAt is the log timestamp of the alert that opened the incident,
+	// when it is plausible (not in the future, at most a day old): the start
+	// of time-to-detect. Replayed or backfilled logs leave it unset.
+	OccurredAt *time.Time `json:"occurred_at,omitempty"`
+	// AcknowledgedAt is when an analyst first took the incident on (assigned
+	// it or moved it out of New): the end of time-to-acknowledge.
+	AcknowledgedAt *time.Time `json:"acknowledged_at,omitempty"`
 }
 
 // Open reports whether new alerts may still join the incident.
@@ -191,7 +198,10 @@ type Filter struct {
 	Severity models.Severity
 	Assignee string
 	Entity   *Entity
-	Limit    int
+	// ActiveSince keeps incidents created or resolved since then, plus every
+	// open one (SOC metrics).
+	ActiveSince time.Time
+	Limit       int
 }
 
 // Stats summarises the incident queue for SOC metrics.

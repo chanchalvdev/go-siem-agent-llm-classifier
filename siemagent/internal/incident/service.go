@@ -81,6 +81,10 @@ func EntitiesOf(ev models.ClassifiedEvent) []Entity {
 	return out
 }
 
+// maxDetectLag is how old a log timestamp may be and still count towards
+// time-to-detect; older ones are replays or backfills, not detection delay.
+const maxDetectLag = 24 * time.Hour
+
 // Observe correlates one classified event. ok is false when the event is
 // below MinSeverity and stays out of incidents.
 func (s *Service) Observe(ctx context.Context, ev models.ClassifiedEvent) (res Result, ok bool, err error) {
@@ -127,6 +131,10 @@ func (s *Service) Observe(ctx context.Context, ev models.ClassifiedEvent) (res R
 			FirstSeen:  now, LastSeen: now, CreatedAt: now, UpdatedAt: now,
 		}
 		inc.Title = title(ev, match)
+		if ts := ev.Event.Timestamp; !ts.IsZero() && !ts.After(now.Add(5*time.Minute)) && now.Sub(ts) <= maxDetectLag {
+			occurred := ts.UTC()
+			inc.OccurredAt = &occurred
+		}
 		act := Activity{At: now, Actor: SystemActor, Kind: ActivityCreated,
 			Body: fmt.Sprintf("Opened from %s alert: %s", ev.Severity, ev.AttackType)}
 		if err := s.store.Save(ctx, inc, &alert, act); err != nil {
@@ -234,6 +242,9 @@ func (s *Service) Update(ctx context.Context, id string, u Update, actor string)
 	}
 	if len(acts) == 0 {
 		return inc, nil
+	}
+	if inc.AcknowledgedAt == nil && (inc.Status != StatusNew || inc.Assignee != "") {
+		inc.AcknowledgedAt = &now
 	}
 	inc.UpdatedAt = now
 	if err := s.store.Save(ctx, inc, nil, acts...); err != nil {
