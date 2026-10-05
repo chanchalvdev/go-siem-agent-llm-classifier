@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chverma/siemagent/internal/config"
 	"github.com/chverma/siemagent/internal/store"
 )
 
@@ -45,7 +46,9 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 	// even for a 1-token reply, so allow headroom.
 	llmCtx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
-	if err := s.classifier.Ping(llmCtx); err != nil {
+	if s.cfg.Provider == config.ProviderNone {
+		checks["llm"] = "disabled"
+	} else if err := s.classifier.Ping(llmCtx); err != nil {
 		checks["llm"] = "error: " + err.Error()
 		allOK = false
 	} else {
@@ -64,8 +67,11 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 		dbCancel()
 	}
 
-	// Check Qdrant gRPC port
-	if s.cfg.QdrantAddr != "" {
+	// Check Qdrant only when semantic search was enabled at start: it is
+	// optional, and a server running without it is still ready.
+	if s.search == nil {
+		checks["qdrant"] = "disabled"
+	} else if s.cfg.QdrantAddr != "" {
 		conn, err := net.DialTimeout("tcp", s.cfg.QdrantAddr, 2*time.Second)
 		if err != nil {
 			checks["qdrant"] = "error: " + err.Error()

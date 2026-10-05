@@ -191,8 +191,8 @@ One connector per release keeps quality high. Good first targets:
 
 ## Operations and distribution (ongoing track)
 
-- [ ] **One-command demo** — `docker compose up` with sample attack data
-      preloaded, so a new user sees an investigated incident within minutes
+- [x] **One-command demo** — `make demo`: Docker, no API key (rules-only), attack
+      scenario seeded on first start; smoke-tested in CI
 - [ ] **Container images** published on every release; Helm chart for Kubernetes
 - [ ] **Versioned releases** with changelog and signed binaries
 - [x] **Versioned schema migrations** — numbered, checksummed, applied once under an advisory lock; `siemagent --migrate`

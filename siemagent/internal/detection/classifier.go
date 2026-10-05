@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/metrics"
@@ -35,7 +36,9 @@ func ParseMode(s string) (Mode, error) {
 	return "", fmt.Errorf("unknown DETECTION_MODE %q (want rules-first, enrich or off)", s)
 }
 
-// Classifier wraps an LLM classifier with rule evaluation. It implements
+// Classifier wraps an LLM classifier with rule evaluation. With a nil LLM
+// (LLM_PROVIDER=none) it runs rules only and labels unmatched events
+// Unclassified. It implements
 // classifier.Interface, so the API, worker pool and CLI use it unchanged.
 type Classifier struct {
 	next   classifier.Interface
@@ -48,6 +51,8 @@ type Classifier struct {
 
 var _ classifier.Interface = (*Classifier)(nil)
 
+// NewClassifier combines rules with next, the LLM classifier; next may be nil
+// for rules-only operation (mode must then be rules-first).
 func NewClassifier(next classifier.Interface, engine *Engine, mode Mode, index func(models.ClassifiedEvent)) *Classifier {
 	return &Classifier{next: next, engine: engine, mode: mode, index: index}
 }
@@ -58,6 +63,9 @@ func (c *Classifier) Classify(ctx context.Context, ev models.LogEvent) (models.C
 
 func (c *Classifier) ClassifyStream(ctx context.Context, ev models.LogEvent, onChunk func(string)) (models.ClassifiedEvent, error) {
 	if c.mode == ModeOff || c.engine == nil {
+		if c.next == nil {
+			return Unclassified(ev), nil // misconfiguration; config validation prevents it
+		}
 		return c.next.ClassifyStream(ctx, ev, onChunk)
 	}
 
@@ -69,6 +77,10 @@ func (c *Classifier) ClassifyStream(ctx context.Context, ev models.LogEvent, onC
 			c.index(out)
 		}
 		return out, nil
+	}
+
+	if c.next == nil {
+		return Unclassified(ev), nil
 	}
 
 	out, err := c.next.ClassifyStream(ctx, ev, onChunk)
@@ -96,7 +108,32 @@ func (c *Classifier) ClassifyStream(ctx context.Context, ev models.LogEvent, onC
 	return out, nil
 }
 
-func (c *Classifier) Ping(ctx context.Context) error { return c.next.Ping(ctx) }
+// Ping checks the LLM; rules-only operation has nothing to reach.
+func (c *Classifier) Ping(ctx context.Context) error {
+	if c.next == nil {
+		return nil
+	}
+	return c.next.Ping(ctx)
+}
+
+// UnclassifiedType is the attack type of events no rule matched when there
+// is no LLM to classify them.
+const UnclassifiedType = "Unclassified"
+
+// Unclassified is the verdict for an event no rule matched in rules-only
+// operation: informational, kept for search and later review.
+func Unclassified(ev models.LogEvent) models.ClassifiedEvent {
+	return models.ClassifiedEvent{
+		Event:        ev,
+		AttackType:   UnclassifiedType,
+		Severity:     models.SeverityP5,
+		IOCs:         extractIOCs(ev.Raw),
+		Summary:      "No detection rule matched. AI classification is off (LLM_PROVIDER=none).",
+		Remediation:  "None needed unless the event looks suspicious; add a detection rule for activity you want to alert on.",
+		ProcessedAt:  time.Now().UTC(),
+		ClassifiedBy: models.ClassifiedByRules,
+	}
+}
 
 // severityRank orders P1 (most severe) to P5; unknown sorts last.
 func severityRank(s models.Severity) int {

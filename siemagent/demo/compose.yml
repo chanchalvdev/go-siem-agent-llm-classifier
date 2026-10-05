@@ -1,0 +1,77 @@
+# One-command demo: `make demo` from the repository root, or
+#   docker compose -f siemagent/demo/compose.yml up -d --build
+# then open http://localhost:3000 and sign in as admin / siemagent-demo.
+#
+# Runs with no API key: built-in detection rules classify the attack scenario
+# (LLM_PROVIDER=none). To add AI classification and investigations, export
+# LLM_PROVIDER=gemini and GEMINI_API_KEY=... before starting.
+#
+# Demo only: fixed credentials, no TLS. Do not expose it to a network.
+name: siemagent-demo
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: siemagent
+      POSTGRES_PASSWORD: siemagent
+      POSTGRES_DB: siemagent
+    volumes:
+      - demo_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U siemagent"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ..
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-none}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      POSTGRES_DSN: postgres://siemagent:siemagent@postgres:5432/siemagent?sslmode=disable
+      SIEM_ADMIN_USER: admin
+      SIEM_ADMIN_PASSWORD: ${SIEM_ADMIN_PASSWORD:-siemagent-demo}
+      ALLOWED_ORIGIN: http://localhost:3000
+      # Replayed once, on first start, when the database has no events.
+      SEED_LOG_FILE: /demo/attack-scenario.log
+      # Approved containment actions are POSTed here; see `docker compose logs webhook`.
+      RESPONSE_WEBHOOK_URL: http://webhook:9000/contain
+      SYSLOG_UDP_ADDR: ":5514"
+    volumes:
+      - ./attack-scenario.log:/demo/attack-scenario.log:ro
+    ports:
+      - "127.0.0.1:8080:8080"     # API and /docs
+      - "127.0.0.1:5514:5514/udp" # syslog
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build: ../web
+    environment:
+      API_UPSTREAM: http://api:8080
+    ports:
+      - "127.0.0.1:3000:8080"
+    depends_on:
+      - api
+
+  # Stands in for your firewall/IdP/EDR automation: prints every action.
+  webhook:
+    image: python:3.13-alpine
+    command:
+      - python3
+      - -u
+      - -c
+      - |
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        class H(BaseHTTPRequestHandler):
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                print("action received:", body.decode(errors="replace"))
+                self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
+            def log_message(self, *args): pass
+        HTTPServer(("0.0.0.0", 9000), H).serve_forever()
+
+volumes:
+  demo_postgres:

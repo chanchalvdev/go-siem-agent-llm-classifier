@@ -15,6 +15,8 @@ const (
 	ProviderGemini = "gemini"
 	ProviderOllama = "ollama" // local model, no API key, logs never leave the host
 	ProviderOpenAI = "openai" // any OpenAI-compatible endpoint (Kimchi, OpenAI, Groq…)
+	// ProviderNone runs rules only: no LLM classification or AI investigation.
+	ProviderNone = "none"
 )
 
 const (
@@ -26,7 +28,7 @@ const (
 )
 
 type Config struct {
-	Provider      string // ProviderGemini | ProviderOllama | ProviderOpenAI
+	Provider      string // ProviderGemini | ProviderOllama | ProviderOpenAI | ProviderNone
 	BaseURL       string // OpenAI-compatible endpoint
 	APIKey        string
 	ModelName     string
@@ -62,6 +64,10 @@ type Config struct {
 	RetentionEventsRaw    string // RETENTION_EVENTS_DAYS
 	RetentionIncidentsRaw string // RETENTION_INCIDENTS_DAYS (resolved incidents)
 	RetentionAuditRaw     string // RETENTION_AUDIT_DAYS
+
+	// SeedLogFile is replayed through the pipeline on start when no events
+	// are stored yet (demos); empty disables seeding.
+	SeedLogFile string
 }
 
 // Retention is how long each kind of data is kept. Zero keeps it forever.
@@ -102,6 +108,8 @@ func Load() Config {
 		RetentionEventsRaw:    strings.TrimSpace(os.Getenv("RETENTION_EVENTS_DAYS")),
 		RetentionIncidentsRaw: strings.TrimSpace(os.Getenv("RETENTION_INCIDENTS_DAYS")),
 		RetentionAuditRaw:     strings.TrimSpace(os.Getenv("RETENTION_AUDIT_DAYS")),
+
+		SeedLogFile: strings.TrimSpace(os.Getenv("SEED_LOG_FILE")),
 	}
 
 	cfg.Provider = strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
@@ -230,8 +238,12 @@ func (c Config) Validate() error {
 			return errors.New("set GEMINI_API_KEY, KIMCHI_API_KEY or OPENAI_API_KEY, or use LLM_PROVIDER=ollama for a local model")
 		}
 	case ProviderOllama:
+	case ProviderNone:
+		if c.DetectionMode != "" && c.DetectionMode != "rules-first" {
+			return fmt.Errorf("LLM_PROVIDER=none needs DETECTION_MODE=rules-first (got %q): without an LLM only rules classify events", c.DetectionMode)
+		}
 	default:
-		return fmt.Errorf("unknown LLM_PROVIDER %q (want gemini, ollama or openai)", c.Provider)
+		return fmt.Errorf("unknown LLM_PROVIDER %q (want gemini, ollama, openai or none)", c.Provider)
 	}
 	return nil
 }

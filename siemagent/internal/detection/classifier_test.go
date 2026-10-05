@@ -147,3 +147,22 @@ func TestMITREFromTacticOnlyTags(t *testing.T) {
 		t.Fatal("no tags should give N/A tactic")
 	}
 }
+
+func TestRulesOnlyWithoutLLM(t *testing.T) {
+	c := NewClassifier(nil, builtinEngine(t), ModeRulesFirst, nil)
+	if err := c.Ping(context.Background()); err != nil {
+		t.Fatalf("rules-only ping: %v", err)
+	}
+	out, err := c.Classify(context.Background(), parse(shadowDelete))
+	if err != nil || out.ClassifiedBy != models.ClassifiedByRules || out.Severity != models.SeverityP1 {
+		t.Fatalf("rule match: %+v %v", out, err)
+	}
+	out, err = c.Classify(context.Background(), parse(benignLine))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.AttackType != UnclassifiedType || out.Severity != models.SeverityP5 || out.ClassifiedBy != models.ClassifiedByRules ||
+		out.IOCs == nil || out.ProcessedAt.IsZero() || len(out.Detections) != 0 {
+		t.Fatalf("unmatched event without an LLM: %+v", out)
+	}
+}
