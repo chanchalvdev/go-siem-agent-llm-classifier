@@ -1,0 +1,5 @@
+# Demo watchlist, loaded through IOC_WATCHLIST_DIR. The "p4-" prefix sets the
+# severity of a match; without one, file lists are P2.
+# In production, point a feed at a maintained list instead, e.g.
+# https://check.torproject.org/torbulkexitlist
+185.220.101.0/24

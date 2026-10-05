@@ -38,8 +38,11 @@ services:
       # Approved containment actions are POSTed here; see `docker compose logs webhook`.
       RESPONSE_WEBHOOK_URL: http://webhook:9000/contain
       SYSLOG_UDP_ADDR: ":5514"
+      # Read-only IOC lists; the demo flags the brute-force source as a Tor exit.
+      IOC_WATCHLIST_DIR: /demo/watchlists
     volumes:
       - ./attack-scenario.log:/demo/attack-scenario.log:ro
+      - ./watchlists:/demo/watchlists:ro
     ports:
       - "127.0.0.1:8080:8080"     # API and /docs
       - "127.0.0.1:5514:5514/udp" # syslog

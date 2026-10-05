@@ -29,6 +29,21 @@ var (
 		},
 	)
 
+	IOCMatchesTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ioc_matches_total",
+			Help: "Watchlist matches on events, by indicator type (ip, cidr, domain, hash).",
+		},
+		[]string{"type"},
+	)
+
+	IOCFeedErrorsTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "ioc_feed_errors_total",
+			Help: "Failed watchlist feed downloads.",
+		},
+	)
+
 	EventsSuppressedTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "events_suppressed_total",

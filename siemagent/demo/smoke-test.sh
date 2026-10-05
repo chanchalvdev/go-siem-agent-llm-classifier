@@ -42,6 +42,15 @@ if tactics != {"Credential Access", "Privilege Escalation"}:
 print("incidents ok:", ", ".join(want))
 ' || fail "incidents"
 
+curl -sf -b "$JAR" "$BASE/api/watchlists" | python3 -c '
+import json, sys
+lists = {w["name"]: w for w in json.load(sys.stdin)}
+tor = lists.get("tor-exit-nodes")
+if not tor or tor["hits"] < 1:
+    sys.exit(f"tor-exit-nodes watchlist did not match: {lists}")
+print("watchlist ok:", tor["hits"], "matches")
+' || fail "watchlists"
+
 action=$(curl -sf -b "$JAR" "$BASE/api/response/actions?status=pending" | python3 -c '
 import json, sys
 for a in json.load(sys.stdin):

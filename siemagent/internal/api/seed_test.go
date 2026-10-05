@@ -4,17 +4,19 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/chverma/siemagent/internal/config"
 	"github.com/chverma/siemagent/internal/detection"
 	"github.com/chverma/siemagent/internal/incident"
+	"github.com/chverma/siemagent/internal/ioc"
 	"github.com/chverma/siemagent/internal/models"
 )
 
 // rulesOnlyServer is the demo configuration: built-in rules, no LLM.
-func rulesOnlyServer(t *testing.T) (*Server, *incident.Service) {
+func rulesOnlyServer(t *testing.T, opts ...ServerOption) (*Server, *incident.Service) {
 	t.Helper()
 	rules, errs := detection.LoadBuiltin()
 	if len(errs) > 0 {
@@ -26,7 +28,8 @@ func rulesOnlyServer(t *testing.T) (*Server, *incident.Service) {
 	}
 	inc := incident.NewService(incident.NewMemory(), incident.DefaultConfig())
 	srv := New(config.Config{Port: "0", Provider: config.ProviderNone},
-		detection.NewClassifier(nil, engine, detection.ModeRulesFirst, nil), WithIncidents(inc), WithDetections(engine))
+		detection.NewClassifier(nil, engine, detection.ModeRulesFirst, nil),
+		append([]ServerOption{WithIncidents(inc), WithDetections(engine)}, opts...)...)
 	return srv, inc
 }
 
@@ -79,6 +82,36 @@ func TestSeedDemoScenarioRulesOnly(t *testing.T) {
 	// A second start finds data and leaves it alone.
 	if n, err := srv.Seed(ctx, filepath.Join("..", "..", "demo", "attack-scenario.log")); err != nil || n != 0 {
 		t.Fatalf("reseed: n=%d err=%v", n, err)
+	}
+}
+
+// The demo's watchlist flags the brute-force source without changing which
+// incidents the scenario opens (the smoke test relies on both).
+func TestSeedDemoScenarioWithWatchlist(t *testing.T) {
+	ctx := context.Background()
+	wl, err := ioc.NewService(ctx, ioc.NewMemory())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := wl.LoadDir(filepath.Join("..", "..", "demo", "watchlists")); err != nil || n != 1 {
+		t.Fatalf("demo watchlists: %d %v", n, err)
+	}
+	srv, inc := rulesOnlyServer(t, WithWatchlists(wl))
+	if _, err := srv.Seed(ctx, filepath.Join("..", "..", "demo", "attack-scenario.log")); err != nil {
+		t.Fatal(err)
+	}
+	list, _ := inc.List(ctx, incident.Filter{Limit: 50})
+	var titles []string
+	for _, i := range list {
+		titles = append(titles, i.Title)
+	}
+	slices.Sort(titles)
+	want := []string{"Port Scan From One Source from 203.0.113.50", "SSH Brute Force from 185.220.101.77", "Shadow Copies Deleted on app02"}
+	if !slices.Equal(titles, want) {
+		t.Fatalf("incidents %v, want %v", titles, want)
+	}
+	if got := wl.List()[0]; got.Name != "tor-exit-nodes" || got.Hits < 10 {
+		t.Fatalf("tor watchlist: %+v", got)
 	}
 }
 

@@ -78,8 +78,8 @@ Catch known-bad activity with rules, so the LLM is reserved for what rules miss.
       (e.g. 10 failed logins from one IP in 5 minutes)
 - [x] **Rule management UI** — enable/disable and hit counts
 - [ ] **Rule tuning** — edit thresholds and track false-positive rates
-- [ ] **IOC watchlists** — match IPs, domains and hashes from threat feeds
-      (MISP, OTX, abuse.ch) in real time
+- [x] **IOC watchlists** — IPs, ranges, domains and hashes from feeds, files or
+      analysts matched on every event (see [docs/WATCHLISTS.md](docs/WATCHLISTS.md))
 
 ## Phase 6 — Incidents and case management
 

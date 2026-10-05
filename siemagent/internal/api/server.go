@@ -24,6 +24,7 @@ import (
 	"github.com/chverma/siemagent/internal/config"
 	"github.com/chverma/siemagent/internal/detection"
 	"github.com/chverma/siemagent/internal/incident"
+	"github.com/chverma/siemagent/internal/ioc"
 	"github.com/chverma/siemagent/internal/metrics"
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
@@ -69,6 +70,8 @@ type Server struct {
 	retention  *retention.Runner // nil without Postgres
 	// suppressions snooze noisy alerts; nil disables suppression.
 	suppressions *suppression.Service
+	// watchlists match events against IOC lists; nil disables matching.
+	watchlists *ioc.Service
 }
 
 // maxConcurrentInvestigations caps agent runs in flight. Bulk ingest and
@@ -201,6 +204,12 @@ func (s *Server) buildRouter() *chi.Mux {
 				r.Post("/response/actions/{id}/approve", s.handleApproveAction)
 				r.Post("/response/actions/{id}/reject", s.handleRejectAction)
 
+				r.Get("/watchlists", s.handleListWatchlists)
+				r.Get("/watchlists/{id}/indicators", s.handleListIndicators)
+				r.Post("/watchlists/{id}/indicators", s.handleAddIndicators)
+				r.Delete("/watchlists/{id}/indicators", s.handleRemoveIndicator)
+				r.Get("/ioc/lookup", s.handleLookupIOC)
+
 				r.Get("/suppressions", s.handleListSuppressions)
 				r.Post("/suppressions", s.handleCreateSuppression)
 				r.Delete("/suppressions/{id}", s.handleLiftSuppression)
@@ -214,6 +223,10 @@ func (s *Server) buildRouter() *chi.Mux {
 					r.Patch("/users/{id}", s.handleUpdateUser)
 					r.Get("/audit", s.handleListAudit)
 					r.Get("/retention", s.handleRetention)
+					r.Post("/watchlists", s.handleCreateWatchlist)
+					r.Patch("/watchlists/{id}", s.handleUpdateWatchlist)
+					r.Delete("/watchlists/{id}", s.handleDeleteWatchlist)
+					r.Post("/watchlists/{id}/refresh", s.handleRefreshWatchlist)
 				})
 			})
 
@@ -406,16 +419,19 @@ func (s *Server) handleClassify(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, sanitizeEvent(classified))
 }
 
-// record persists a classified event, correlates it into an incident and,
-// for P1/P2, launches the incident agent. An event a suppression matches is
-// stored marked with the suppression and goes no further. It returns the
-// event as stored. Every ingestion path (HTTP, stream,
-// bulk, syslog) goes through here. It deliberately ignores the request
+// record matches a classified event against the IOC watchlists, persists
+// it, correlates it into an incident and, for P1/P2, launches the incident
+// agent. An event a suppression matches is stored marked with the
+// suppression and goes no further. It returns the event as stored. Every
+// ingestion path (HTTP, stream, bulk, syslog) goes through here. It deliberately ignores the request
 // context: a client disconnecting must not lose an event that was already
 // classified.
 func (s *Server) record(ev models.ClassifiedEvent) models.ClassifiedEvent {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	if s.watchlists != nil {
+		ev, _ = s.watchlists.Enrich(ev)
+	}
 	if s.suppressions != nil {
 		if sup, ok := s.suppressions.Match(ev); ok {
 			ev.SuppressedBy = sup.ID
