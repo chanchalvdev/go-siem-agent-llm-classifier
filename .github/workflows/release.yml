@@ -45,7 +45,7 @@ jobs:
           go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o "dist/$name/siemagent" ./cmd/siemagent
           cp ../LICENSE ../README.md .env.example "dist/$name/"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: bin-${{ matrix.goos }}-${{ matrix.goarch }}
           path: siemagent/dist/*.tar.gz
