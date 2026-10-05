@@ -24,6 +24,7 @@ import (
 	"github.com/chverma/siemagent/internal/detection"
 	"github.com/chverma/siemagent/internal/incident"
 	"github.com/chverma/siemagent/internal/ingest"
+	"github.com/chverma/siemagent/internal/ioc"
 	"github.com/chverma/siemagent/internal/models"
 	"github.com/chverma/siemagent/internal/parser"
 	"github.com/chverma/siemagent/internal/pipeline"
@@ -209,10 +210,15 @@ func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
+		iocStore, err := ioc.NewPostgres(ctx, pg.Pool())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
 		incidents := newIncidentService(cfg, incStore)
 		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, actStore, incidents)),
 			api.WithUsers(newAuthService(ctx, cfg, authStore)), api.WithRetention(startRetention(ctx, cfg, pg)),
-			api.WithSuppressions(newSuppressions(ctx, supStore)))
+			api.WithSuppressions(newSuppressions(ctx, supStore)), api.WithWatchlists(startWatchlists(ctx, cfg, iocStore)))
 	} else {
 		slog.Warn("POSTGRES_DSN not set: events are kept in memory and lost on restart", "component", "main")
 		if r, _ := cfg.Retention(); r != (config.Retention{}) {
@@ -220,7 +226,8 @@ func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.
 		}
 		incidents := newIncidentService(cfg, incident.NewMemory())
 		opts = append(opts, api.WithIncidents(incidents), api.WithResponse(newResponseEngine(cfg, response.NewMemory(), incidents)),
-			api.WithUsers(newAuthService(ctx, cfg, auth.NewMemory())), api.WithSuppressions(newSuppressions(ctx, suppression.NewMemory())))
+			api.WithUsers(newAuthService(ctx, cfg, auth.NewMemory())), api.WithSuppressions(newSuppressions(ctx, suppression.NewMemory())),
+			api.WithWatchlists(startWatchlists(ctx, cfg, ioc.NewMemory())))
 	}
 
 	// Live incident stream: tool registry + WebSocket hub. Rules-only mode
@@ -301,6 +308,32 @@ func seed(ctx context.Context, srv *api.Server, path string) {
 		slog.Info("seeded demo events", "component", "main", "file", path, "events", n,
 			"duration_ms", time.Since(start).Milliseconds())
 	}
+}
+
+// startWatchlists loads the IOC watchlists (stored lists and
+// IOC_WATCHLIST_DIR) and keeps feeds refreshed until ctx ends. A list that
+// cannot be loaded is fatal: silently matching nothing would hide attacks.
+func startWatchlists(ctx context.Context, cfg config.Config, st ioc.Store) *ioc.Service {
+	svc, err := ioc.NewService(ctx, st)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: load watchlists: %v\n", err)
+		os.Exit(1)
+	}
+	if cfg.WatchlistDir != "" {
+		n, err := svc.LoadDir(cfg.WatchlistDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		slog.Info("watchlist files loaded", "component", "main", "dir", cfg.WatchlistDir, "lists", n)
+	}
+	total := 0
+	for _, w := range svc.List() {
+		total += w.Count
+	}
+	slog.Info("IOC watchlists ready", "component", "main", "lists", len(svc.List()), "indicators", total)
+	go svc.Start(ctx) // downloads feeds now and when due
+	return svc
 }
 
 // newSuppressions loads the alert suppressions; failing to read them is fatal

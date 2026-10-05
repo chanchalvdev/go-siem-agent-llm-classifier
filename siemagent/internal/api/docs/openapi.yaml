@@ -696,6 +696,174 @@ paths:
                 type: array
                 items: {$ref: "#/components/schemas/Playbook"}
 
+  /api/watchlists:
+    get:
+      tags: [Detection]
+      summary: List IOC watchlists
+      description: Manual lists, feeds and files, with indicator counts, matches since start and feed status.
+      operationId: listWatchlists
+      responses:
+        "200":
+          description: Watchlists by name
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/Watchlist"}
+    post:
+      tags: [Detection]
+      summary: Add a manual watchlist or a feed (admin)
+      operationId: createWatchlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, source]
+              properties:
+                name: {type: string, maxLength: 100}
+                description: {type: string}
+                source: {type: string, enum: [manual, feed]}
+                url: {type: string, description: Feeds only; http(s)}
+                severity: {type: string, enum: [P1, P2, P3, P4], default: P2}
+                refresh_seconds: {type: integer, minimum: 900, default: 21600}
+      responses:
+        "201":
+          description: Created; a feed is downloaded within a minute
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Watchlist"}
+        "400": {description: Invalid watchlist}
+
+  /api/watchlists/{id}:
+    patch:
+      tags: [Detection]
+      summary: Rename, enable/disable or re-grade a watchlist (admin)
+      operationId: updateWatchlist
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: {type: string}
+                enabled: {type: boolean}
+                severity: {type: string, enum: [P1, P2, P3, P4]}
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Watchlist"}
+    delete:
+      tags: [Detection]
+      summary: Delete a manual list or feed (admin)
+      operationId: deleteWatchlist
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "204": {description: Deleted}
+        "409": {description: File lists are read-only}
+
+  /api/watchlists/{id}/refresh:
+    post:
+      tags: [Detection]
+      summary: Download a feed now (admin)
+      operationId: refreshWatchlist
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: The feed after the attempt; `error` is set when the download failed
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Watchlist"}
+        "409": {description: Not a feed}
+
+  /api/watchlists/{id}/indicators:
+    get:
+      tags: [Detection]
+      summary: Indicators of a watchlist
+      operationId: listIndicators
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 5000, default: 200}}
+      responses:
+        "200":
+          description: The first `limit` indicators and the total
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: {type: integer}
+                  indicators:
+                    type: array
+                    items: {$ref: "#/components/schemas/Indicator"}
+    post:
+      tags: [Detection]
+      summary: Add indicators to a manual list (analyst)
+      operationId: addIndicators
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [values]
+              properties:
+                values: {type: array, maxItems: 10000, items: {type: string}, example: ["203.0.113.9", "evil.example"]}
+                note: {type: string, maxLength: 200}
+      responses:
+        "200":
+          description: What was added and what was not an indicator
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  added: {type: array, items: {$ref: "#/components/schemas/Indicator"}}
+                  rejected: {type: array, items: {type: string}}
+        "409": {description: Feeds and files are read-only}
+    delete:
+      tags: [Detection]
+      summary: Remove an indicator from a manual list (analyst)
+      operationId: removeIndicator
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+        - {name: value, in: query, required: true, schema: {type: string}, description: Query parameter because ranges contain "/"}
+      responses:
+        "204": {description: Removed}
+        "404": {description: Not on the list}
+
+  /api/ioc/lookup:
+    get:
+      tags: [Detection]
+      summary: Which enabled watchlists contain a value
+      operationId: lookupIOC
+      parameters:
+        - {name: value, in: query, required: true, schema: {type: string}, description: IP, domain, hash or URL}
+      responses:
+        "200":
+          description: Matching lists (empty when none)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    watchlist_id: {type: string}
+                    watchlist: {type: string}
+                    indicator: {type: string, description: The listed value; a range or parent domain may differ from the input}
+                    severity: {type: string}
+
   /api/suppressions:
     get:
       tags: [Incidents]
@@ -1087,6 +1255,34 @@ components:
         disabled: {type: boolean}
         created_at: {type: string, format: date-time}
         last_login_at: {type: string, format: date-time}
+
+    Watchlist:
+      type: object
+      properties:
+        id: {type: string, example: WL-1A2B3C4D}
+        name: {type: string}
+        description: {type: string}
+        source: {type: string, enum: [manual, feed, file]}
+        url: {type: string}
+        severity: {type: string, enum: [P1, P2, P3, P4]}
+        enabled: {type: boolean}
+        refresh_seconds: {type: integer}
+        created_by: {type: string}
+        created_at: {type: string, format: date-time}
+        count: {type: integer, description: Indicators loaded}
+        skipped: {type: integer, description: Feed or file lines that were not indicators}
+        last_fetched: {type: string, format: date-time}
+        error: {type: string, description: Last download error; previous indicators stay in use}
+        hits: {type: integer, description: Matches since the server started}
+        last_hit: {type: string, format: date-time}
+
+    Indicator:
+      type: object
+      properties:
+        value: {type: string}
+        type: {type: string, enum: [ip, cidr, domain, hash]}
+        note: {type: string}
+        added_by: {type: string}
 
     Suppression:
       type: object

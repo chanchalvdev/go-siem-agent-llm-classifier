@@ -58,6 +58,7 @@ Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Ev
 - **Sigma detection rules**: a built-in rule pack plus any Sigma rules you add (e.g. SigmaHQ); rule matches skip the LLM, cutting cost and latency ([docs/DETECTION.md](docs/DETECTION.md))
 - **Threshold rules**: `count() by src_ip >= 10` over a time window catches brute force, password spraying, web scans and port scans
 - **Rule management**: enable or disable rules from the dashboard, with hit counts
+- **IOC watchlists**: known-bad IPs, ranges, domains and hashes from threat feeds, files or analysts raise matching events instantly ([docs/WATCHLISTS.md](docs/WATCHLISTS.md))
 - **AI classification**: Gemini, a fully local model via Ollama, or any OpenAI-compatible API, with structured JSON output
 - **MITRE ATT&CK mapping and severity triage**: tactic, technique and P1 Critical → P5 Info for every event
 
@@ -290,6 +291,7 @@ Dashboard available at **http://localhost:5173**
 | `DETECTION_MODE` | `rules-first`, `enrich` or `off` ([docs/DETECTION.md](docs/DETECTION.md)) | `rules-first` |
 | `SIGMA_RULES_DIR` | Extra Sigma rules folder, searched recursively | — |
 | `SYSLOG_UDP_ADDR` / `SYSLOG_TCP_ADDR` | Syslog listener addresses, e.g. `:5514` | disabled |
+| `IOC_WATCHLIST_DIR` | Directory of read-only IOC list files ([docs/WATCHLISTS.md](docs/WATCHLISTS.md)) | — |
 | `SEED_LOG_FILE` | Log file replayed through the pipeline on first start, when no events are stored (demos) | — |
 | `CONDUCTOR_PORT` | HTTP server port | `8080` |
 | `ALLOWED_ORIGIN` | CORS origin | `http://localhost:5173` |
@@ -423,6 +425,7 @@ history. See [docs/INCIDENTS.md](docs/INCIDENTS.md).
 - `POST /api/incidents/{id}/investigate`: AI investigation of the whole incident
 - `GET /api/incidents/{id}/report`: Markdown incident report
 - `POST /api/incidents/{id}/feedback` with `{"helpful": true}`
+- `GET /api/watchlists` · `GET /api/ioc/lookup?value=`: IOC watchlists ([docs/WATCHLISTS.md](docs/WATCHLISTS.md))
 - `GET /api/suppressions` · `POST /api/suppressions` · `DELETE /api/suppressions/{id}`: snooze noisy alerts
 
 ### Users and audit

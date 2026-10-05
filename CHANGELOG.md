@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- IOC watchlists: IPs, ranges, domains and file hashes from threat feeds
+  (refreshed on a schedule), list files (`IOC_WATCHLIST_DIR`) or analysts.
+  A match adds a detection, raises the severity and can open an incident.
+  Includes a Watchlists page, indicator lookup and the demo flags the
+  brute-force source as a Tor exit.
+
 ## [0.1.0] - unreleased
 
 First public release: an open-source AI security operations platform, from

@@ -56,6 +56,7 @@ flowchart LR
 | `internal/detection` | Sigma rules (single-event and `count()` thresholds), entity extraction (`src_ip`, `user`, `dst_port`), rule verdicts |
 | `internal/classifier` | LLM classification with MITRE mapping; embeds events into Qdrant |
 | `internal/store` | Event history and rule on/off state (Postgres or memory) |
+| `internal/ioc` | IOC watchlists (feeds, files, manual lists) and matching |
 | `internal/incident` | Correlation into incidents, case management, reports, AI briefs |
 | `internal/agent` | Tool-calling investigation loop (AbuseIPDB, OTX, MITRE, similar events) |
 | `internal/response` | Playbooks, proposed actions, approvals, webhook/Slack executor |
@@ -107,6 +108,13 @@ in Qdrant for similarity search.
 
 The classified event is saved (Postgres `events`, or memory) and shown in the
 dashboard's **Events** list and **Analytics**.
+
+### 5b. Match watchlists
+
+Every event is checked against the enabled IOC watchlists (threat feeds, list
+files, analyst lists). A match adds a detection and can raise the severity,
+so known-bad infrastructure alerts even when no rule or model flags it. See
+[WATCHLISTS.md](WATCHLISTS.md).
 
 ### 6. Correlate into incidents
 

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Shield, ShieldCheck, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown, BookOpen, Siren, Workflow, Users as UsersIcon, ScrollText, LogOut, BellOff } from 'lucide-react'
+import { Shield, ShieldCheck, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown, BookOpen, Siren, Workflow, Users as UsersIcon, ScrollText, LogOut, BellOff, Radar } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { classifyLog, listEvents } from '../lib/api'
 import type { ClassifiedEvent } from '../lib/api'
@@ -20,6 +20,7 @@ import { Response } from './Response'
 import { Users } from './Users'
 import { Audit } from './Audit'
 import { Suppressions } from './Suppressions'
+import { Watchlists } from './Watchlists'
 import { useAuth } from '../auth/auth'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { DetectionList } from '../components/DetectionList'
@@ -49,7 +50,7 @@ function useEventStore() {
   return { events, addEvent, addEvents, clear }
 }
 
-type Tab = 'events' | 'incidents' | 'response' | 'analytics' | 'rules' | 'suppressions' | 'users' | 'audit' | 'docs'
+type Tab = 'events' | 'incidents' | 'response' | 'analytics' | 'rules' | 'watchlists' | 'suppressions' | 'users' | 'audit' | 'docs'
 
 const NAV: { tab: Tab; label: string; Icon: LucideIcon; admin?: boolean }[] = [
   { tab: 'events', label: 'Events', Icon: AlertTriangle },
@@ -57,6 +58,7 @@ const NAV: { tab: Tab; label: string; Icon: LucideIcon; admin?: boolean }[] = [
   { tab: 'response', label: 'Response', Icon: Workflow },
   { tab: 'analytics', label: 'Analytics', Icon: BarChart2 },
   { tab: 'rules', label: 'Rules', Icon: ShieldCheck },
+  { tab: 'watchlists', label: 'Watchlists', Icon: Radar },
   { tab: 'suppressions', label: 'Suppressions', Icon: BellOff },
   { tab: 'users', label: 'Users', Icon: UsersIcon, admin: true },
   { tab: 'audit', label: 'Audit', Icon: ScrollText, admin: true },
@@ -68,6 +70,7 @@ const PAGE_TABS: Partial<Record<Tab, () => React.ReactElement>> = {
   incidents: Incidents,
   response: Response,
   rules: Rules,
+  watchlists: Watchlists,
   suppressions: Suppressions,
   users: Users,
   audit: Audit,

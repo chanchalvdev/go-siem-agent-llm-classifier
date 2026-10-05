@@ -601,3 +601,95 @@ export async function createSuppression(req: NewSuppression): Promise<Suppressio
 export async function liftSuppression(id: string): Promise<void> {
   await client.delete(`/suppressions/${encodeURIComponent(id)}`)
 }
+
+export type IndicatorType = 'ip' | 'cidr' | 'domain' | 'hash'
+export type WatchlistSource = 'manual' | 'feed' | 'file'
+
+export interface Watchlist {
+  id: string
+  name: string
+  description?: string
+  source: WatchlistSource
+  url?: string
+  severity: Severity
+  enabled: boolean
+  refresh_seconds?: number
+  created_by?: string
+  created_at: string
+  /** Indicators loaded right now. */
+  count: number
+  /** Feed or file lines that were not indicators. */
+  skipped?: number
+  last_fetched?: string
+  /** Last download error; the previous indicators stay in use. */
+  error?: string
+  /** Matches since the server started. */
+  hits: number
+  last_hit?: string
+}
+
+export interface Indicator {
+  value: string
+  type: IndicatorType
+  note?: string
+  added_by?: string
+}
+
+export interface NewWatchlist {
+  name: string
+  description?: string
+  source: 'manual' | 'feed'
+  url?: string
+  severity: Severity
+  refresh_seconds?: number
+}
+
+export interface IOCLookupResult {
+  watchlist_id: string
+  watchlist: string
+  indicator: string
+  severity: Severity
+}
+
+export async function listWatchlists(): Promise<Watchlist[]> {
+  const { data } = await client.get<Watchlist[]>('/watchlists')
+  return data
+}
+
+export async function createWatchlist(req: NewWatchlist): Promise<Watchlist> {
+  const { data } = await client.post<Watchlist>('/watchlists', req)
+  return data
+}
+
+export async function updateWatchlist(id: string, u: { name?: string; enabled?: boolean; severity?: Severity }): Promise<Watchlist> {
+  const { data } = await client.patch<Watchlist>(`/watchlists/${encodeURIComponent(id)}`, u)
+  return data
+}
+
+export async function deleteWatchlist(id: string): Promise<void> {
+  await client.delete(`/watchlists/${encodeURIComponent(id)}`)
+}
+
+export async function refreshWatchlist(id: string): Promise<Watchlist> {
+  const { data } = await client.post<Watchlist>(`/watchlists/${encodeURIComponent(id)}/refresh`)
+  return data
+}
+
+export async function listIndicators(id: string, limit = 200): Promise<{ total: number; indicators: Indicator[] }> {
+  const { data } = await client.get<{ total: number; indicators: Indicator[] }>(`/watchlists/${encodeURIComponent(id)}/indicators`, { params: { limit } })
+  return data
+}
+
+export async function addIndicators(id: string, values: string[], note?: string): Promise<{ added: Indicator[]; rejected: string[] }> {
+  const { data } = await client.post<{ added: Indicator[]; rejected: string[] }>(`/watchlists/${encodeURIComponent(id)}/indicators`, { values, note })
+  return data
+}
+
+export async function removeIndicator(id: string, value: string): Promise<void> {
+  await client.delete(`/watchlists/${encodeURIComponent(id)}/indicators`, { params: { value } })
+}
+
+export async function lookupIOC(value: string): Promise<IOCLookupResult[]> {
+  const { data } = await client.get<IOCLookupResult[]>('/ioc/lookup', { params: { value } })
+  return data
+}

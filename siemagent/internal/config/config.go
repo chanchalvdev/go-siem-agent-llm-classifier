@@ -68,6 +68,10 @@ type Config struct {
 	// SeedLogFile is replayed through the pipeline on start when no events
 	// are stored yet (demos); empty disables seeding.
 	SeedLogFile string
+
+	// WatchlistDir holds read-only IOC lists (*.txt, *.csv, *.list) loaded
+	// at start; empty disables file watchlists.
+	WatchlistDir string
 }
 
 // Retention is how long each kind of data is kept. Zero keeps it forever.
@@ -109,7 +113,8 @@ func Load() Config {
 		RetentionIncidentsRaw: strings.TrimSpace(os.Getenv("RETENTION_INCIDENTS_DAYS")),
 		RetentionAuditRaw:     strings.TrimSpace(os.Getenv("RETENTION_AUDIT_DAYS")),
 
-		SeedLogFile: strings.TrimSpace(os.Getenv("SEED_LOG_FILE")),
+		SeedLogFile:  strings.TrimSpace(os.Getenv("SEED_LOG_FILE")),
+		WatchlistDir: strings.TrimSpace(os.Getenv("IOC_WATCHLIST_DIR")),
 	}
 
 	cfg.Provider = strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
