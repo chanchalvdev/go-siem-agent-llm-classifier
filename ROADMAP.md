@@ -158,7 +158,7 @@ Required before teams or MSSPs can share one deployment. See [docs/USERS.md](doc
       HIPAA controls
 - [ ] **Deception** — lightweight honeypots and honeytokens whose any touch is
       a high-confidence alert
-- [ ] **Dashboards** — SOC metrics: MTTD, MTTR, alert volume, analyst workload
+- [x] **Dashboards** — SOC metrics: MTTD, MTTA, MTTR, alert volume, backlog, analyst workload
 
 ---
 

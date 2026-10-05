@@ -191,6 +191,7 @@ func (s *Server) buildRouter() *chi.Mux {
 
 				r.Get("/incidents", s.handleListIncidents)
 				r.Get("/incidents/stats", s.handleIncidentStats)
+				r.Get("/soc/metrics", s.handleSOCMetrics)
 				r.Get("/incidents/{id}", s.handleGetIncident)
 				r.Patch("/incidents/{id}", s.handleUpdateIncident)
 				r.Post("/incidents/{id}/comments", s.handleAddComment)

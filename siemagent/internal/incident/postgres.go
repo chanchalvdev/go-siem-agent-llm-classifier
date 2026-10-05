@@ -194,6 +194,10 @@ func (p *Postgres) List(ctx context.Context, f Filter) ([]Incident, error) {
 			"EXISTS (SELECT 1 FROM incident_entities e WHERE e.incident_id = incidents.id AND e.kind = %s AND e.value = %s)",
 			arg(f.Entity.Kind), arg(f.Entity.Value)))
 	}
+	if !f.ActiveSince.IsZero() {
+		since := arg(f.ActiveSince)
+		where = append(where, fmt.Sprintf("(created_at >= %s OR status <> 'resolved' OR resolved_at >= %s)", since, since))
+	}
 	q := "SELECT data FROM incidents"
 	if len(where) > 0 {
 		q += " WHERE " + strings.Join(where, " AND ")

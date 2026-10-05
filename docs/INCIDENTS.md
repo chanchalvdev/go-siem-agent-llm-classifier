@@ -105,6 +105,37 @@ In the dashboard open **Incidents**:
 The queue header shows open incidents, open P1/P2, resolved count and **mean
 time to resolve** (creation to resolution).
 
+## SOC metrics
+
+The **SOC metrics** page (`GET /api/soc/metrics?days=30`, any role) reports how
+the team is doing over the last 7, 30 or 90 days:
+
+| Metric | Measured from → to | Over |
+|---|---|---|
+| **MTTD**, time to detect | The log timestamp of the alert that opened the incident → the incident opening | Incidents opened in the window |
+| **MTTA**, time to acknowledge | Incident opened → an analyst first assigns it or changes its status (a comment alone does not count) | Incidents opened in the window |
+| **MTTR**, time to resolve | Incident opened → resolved | Incidents resolved in the window |
+
+Each shows the median, the mean and the 90th percentile; one slow incident moves the
+mean but not the median.
+
+MTTD only uses plausible log timestamps: not in the future and at most 24 hours
+before the incident opened. Replayed or backfilled logs (such as the demo
+scenario) and lines without a timestamp are left out, so they don't distort it.
+
+The page also shows:
+- open incidents, how many are unassigned and how many are older than 24 hours
+  (backlog ageing)
+- incidents opened and resolved per day
+- alerts (P1–P3 events) per day, with total and suppressed event counts
+- the false-positive rate (false positives divided by incidents resolved)
+- how incidents were resolved
+- the top attack types
+- per-analyst workload: open now, resolved in the window, and their median MTTR
+- a table of the daily numbers
+
+Without Postgres, event volume covers only the last 1,000 events held in memory.
+
 ## Suppressing noise
 
 Some alerts are real but expected: your own vulnerability scanner, an

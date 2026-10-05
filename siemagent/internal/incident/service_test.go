@@ -318,3 +318,79 @@ func testStoreContract(t *testing.T, st Store) {
 		t.Fatalf("stats = %+v", stats)
 	}
 }
+
+func TestDetectAndAcknowledgeTimes(t *testing.T) {
+	ctx := context.Background()
+	svc, now := testService(t, NewMemory())
+
+	ev := bruteForce
+	ev.Event.Timestamp = now.Add(-90 * time.Second)
+	inc := observe(t, svc, ev).Incident
+	if inc.OccurredAt == nil || now.Sub(*inc.OccurredAt) != 90*time.Second {
+		t.Fatalf("OccurredAt = %v", inc.OccurredAt)
+	}
+
+	// Replayed (too old), future or missing log times do not count.
+	for _, tc := range []struct {
+		name, ip string
+		ts       time.Time
+	}{
+		{"replayed", "198.51.100.1", now.Add(-48 * time.Hour)},
+		{"future", "198.51.100.2", now.Add(time.Hour)},
+		{"missing", "198.51.100.3", time.Time{}},
+	} {
+		e := otherHost // a different IP and host keep the incidents apart
+		e.Event.Raw = strings.ReplaceAll(e.Event.Raw, "198.51.100.9", tc.ip)
+		e.Event.Hostname = "host-" + tc.name
+		e.Event.Timestamp = tc.ts
+		if got := observe(t, svc, e).Incident; got.OccurredAt != nil {
+			t.Errorf("%s log time must not count towards MTTD: %v", tc.name, got.OccurredAt)
+		}
+	}
+
+	// A comment is not an acknowledgement; assigning or changing status is.
+	*now = now.Add(5 * time.Minute)
+	if _, err := svc.Comment(ctx, inc.ID, "ana", "looking"); err != nil {
+		t.Fatal(err)
+	}
+	d, _ := svc.Get(ctx, inc.ID)
+	if d.AcknowledgedAt != nil {
+		t.Fatal("a comment must not acknowledge")
+	}
+	*now = now.Add(5 * time.Minute)
+	who := "ana"
+	got, err := svc.Update(ctx, inc.ID, Update{Assignee: &who}, "ana")
+	if err != nil || got.AcknowledgedAt == nil || got.AcknowledgedAt.Sub(got.CreatedAt) != 10*time.Minute {
+		t.Fatalf("assigning acknowledges: %+v %v", got.AcknowledgedAt, err)
+	}
+	first := *got.AcknowledgedAt
+	*now = now.Add(time.Hour)
+	st := StatusResolved
+	got, _ = svc.Update(ctx, inc.ID, Update{Status: &st}, "ana")
+	if !got.AcknowledgedAt.Equal(first) {
+		t.Fatal("the first acknowledgement is kept")
+	}
+}
+
+func TestActiveSinceFilter(t *testing.T) {
+	ctx := context.Background()
+	st := NewMemory()
+	svc, now := testService(t, st)
+	oldResolved := observe(t, svc, bruteForce).Incident
+	resolved := StatusResolved
+	if _, err := svc.Update(ctx, oldResolved.ID, Update{Status: &resolved}, "ana"); err != nil {
+		t.Fatal(err)
+	}
+	stillOpen := observe(t, svc, otherHost).Incident
+	*now = now.Add(48 * time.Hour)
+	fresh := observe(t, svc, rootShell).Incident
+
+	list, _ := st.List(ctx, Filter{ActiveSince: now.Add(-24 * time.Hour)})
+	ids := map[string]bool{}
+	for _, i := range list {
+		ids[i.ID] = true
+	}
+	if ids[oldResolved.ID] || !ids[stillOpen.ID] || !ids[fresh.ID] {
+		t.Fatalf("ActiveSince kept %v", ids)
+	}
+}

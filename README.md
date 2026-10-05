@@ -66,6 +66,7 @@ Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Ev
 - **Incidents and case management**: related alerts grouped by IP, user or host, with status, assignee, resolution, comments, a kill-chain view and a full timeline ([docs/INCIDENTS.md](docs/INCIDENTS.md))
 - **AI investigation of whole incidents**: tool-calling agent (AbuseIPDB, OTX, MITRE, similar events) writes a cited report, once per P1/P2 incident or on demand; analysts rate it
 - **Incident reports**: self-contained Markdown export
+- **SOC metrics**: MTTD, MTTA and MTTR (median, mean, p90), alert and incident volume, false-positive rate, backlog ageing and analyst workload
 - **Suppressions**: snooze a noisy IP, user, host, rule or attack type for a while; matching events are kept but open no incident
 - **Semantic search**: vector embeddings via Ollama + Qdrant to find similar past events
 - **Live stream**: `/ws/alerts` WebSocket shows investigations as they run
@@ -419,6 +420,7 @@ history. See [docs/INCIDENTS.md](docs/INCIDENTS.md).
 
 - `GET /api/incidents?status=open&entity=ip:1.2.3.4`
 - `GET /api/incidents/stats`
+- `GET /api/soc/metrics?days=30`: MTTD/MTTA/MTTR, volume, workload ([docs/INCIDENTS.md](docs/INCIDENTS.md#soc-metrics))
 - `GET /api/incidents/{id}`
 - `PATCH /api/incidents/{id}` with `{"status","assignee","severity","resolution"}`
 - `POST /api/incidents/{id}/comments` with `{"body": "..."}`
