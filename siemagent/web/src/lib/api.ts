@@ -51,6 +51,8 @@ export interface ClassifiedEvent extends Classification {
   detections?: Detection[]
   /** What produced the verdict. Absent on events stored before rules existed. */
   classified_by?: 'rules' | 'llm' | 'llm+rules'
+  /** Set when a suppression matched: stored, but kept out of incidents. */
+  suppressed_by?: string
 }
 
 export interface DetectionRule {
@@ -557,4 +559,45 @@ export interface RetentionStatus {
 export async function getRetention(): Promise<RetentionStatus> {
   const { data } = await client.get<RetentionStatus>('/retention')
   return data
+}
+
+export interface Suppression {
+  id: string
+  entity?: { kind: 'ip' | 'user' | 'host'; value: string }
+  rule_id?: string
+  attack_type?: string
+  reason: string
+  created_by: string
+  created_at: string
+  /** Absent for a suppression that lasts until it is lifted. */
+  expires_at?: string
+  /** Matches since the server started. */
+  hits: number
+  last_hit?: string
+}
+
+export interface NewSuppression {
+  /** "ip:1.2.3.4", "user:alice" or "host:web01" */
+  entity?: string
+  rule_id?: string
+  attack_type?: string
+  reason: string
+  /** Go duration such as "24h"; empty lasts until lifted. */
+  duration?: string
+  /** Records the snooze on this incident's timeline. */
+  incident_id?: string
+}
+
+export async function listSuppressions(): Promise<Suppression[]> {
+  const { data } = await client.get<Suppression[]>('/suppressions')
+  return data
+}
+
+export async function createSuppression(req: NewSuppression): Promise<Suppression> {
+  const { data } = await client.post<Suppression>('/suppressions', req)
+  return data
+}
+
+export async function liftSuppression(id: string): Promise<void> {
+  await client.delete(`/suppressions/${encodeURIComponent(id)}`)
 }

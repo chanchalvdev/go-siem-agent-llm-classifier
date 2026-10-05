@@ -105,6 +105,36 @@ In the dashboard open **Incidents**:
 The queue header shows open incidents, open P1/P2, resolved count and **mean
 time to resolve** (creation to resolution).
 
+## Suppressing noise
+
+Some alerts are real but expected: your own vulnerability scanner, an
+authorised pentest, a backup job that trips a rule. **Suppressions** snooze
+them so they stop opening incidents.
+
+A suppression matches by any combination of **entity** (`ip:`, `user:` or
+`host:`), **detection rule ID** and **attack type**; every field you set must
+match. It lasts 1 hour to 90 days, or until lifted. Matching events are still
+classified and **stored**, marked `suppressed_by: SUP-…` (the Events list shows
+a *Suppressed* badge), but they open or join no incident, run no playbook and
+start no AI investigation.
+
+- **Suppressions** page: add one, see active and expired ones with their hit
+  counts (events absorbed since the server started), lift one to make the
+  source alert again at once.
+- In an incident, **Snooze** next to the entities snoozes one of them; the
+  snooze is noted on the incident's timeline.
+- Analysts and admins create and lift suppressions; viewers can see them.
+  Every change is in the audit log.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/suppressions` | All suppressions, newest first |
+| `POST` | `/api/suppressions` | `{"entity":"ip:203.0.113.9","rule_id":"","attack_type":"","reason":"...","duration":"24h","incident_id":"INC-…"}`; empty `duration` lasts until lifted |
+| `DELETE` | `/api/suppressions/{id}` | Lift |
+
+At most 500 suppressions can be active. `events_suppressed_total` counts the
+events they absorb, a measure of alert fatigue.
+
 ## API
 
 | Method | Path | Purpose |
@@ -152,3 +182,4 @@ in memory.
 | `incident_alerts_correlated_total` | Alerts that joined an existing incident |
 | `incidents_resolved_total{resolution}` | Incidents resolved |
 | `ai_investigation_feedback_total{rating}` | Analyst ratings of AI investigations |
+| `events_suppressed_total` | Events kept out of incidents by a suppression |

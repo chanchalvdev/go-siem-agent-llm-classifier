@@ -110,6 +110,9 @@ dashboard's **Events** list and **Analytics**.
 
 ### 6. Correlate into incidents
 
+An event an analyst has **suppressed** (by entity, rule or attack type) stops
+here: it is stored, marked `suppressed_by`, but opens no incident.
+
 Alerts at or above `INCIDENT_MIN_SEVERITY` (default P3) join an **open
 incident** that shares an IP, user or host and was active within
 `INCIDENT_WINDOW` (default 1h); otherwise a new incident opens. The incident

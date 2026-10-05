@@ -68,6 +68,16 @@ describe('EventCard', () => {
     expect(screen.getByText(/92% match/)).toBeInTheDocument()
   })
 
+  it('marks suppressed events', () => {
+    render(<EventCard event={{ ...mockEvent, suppressed_by: 'SUP-1' }} onClick={() => {}} selected={false} />)
+    expect(screen.getByText('Suppressed')).toHaveAttribute('title', expect.stringContaining('SUP-1'))
+  })
+
+  it('shows no suppressed badge on normal events', () => {
+    render(<EventCard event={mockEvent} onClick={() => {}} selected={false} />)
+    expect(screen.queryByText('Suppressed')).not.toBeInTheDocument()
+  })
+
   it('does not show match score when score prop is absent', () => {
     render(<EventCard event={mockEvent} onClick={() => {}} selected={false} />)
     expect(screen.queryByText(/% match/)).not.toBeInTheDocument()

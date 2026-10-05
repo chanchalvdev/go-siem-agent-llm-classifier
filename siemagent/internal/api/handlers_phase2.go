@@ -61,8 +61,7 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 		defer close(done)
 		count := 0
 		for ev := range resultsCh {
-			results = append(results, ev)
-			s.record(ev)
+			results = append(results, s.record(ev))
 			count++
 			// Flush progress every 10 events.
 			if count%10 == 0 && canFlush {

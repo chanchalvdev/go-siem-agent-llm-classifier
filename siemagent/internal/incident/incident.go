@@ -122,6 +122,8 @@ const (
 	ActivityFeedback = "feedback"
 	// ActivityResponse records response actions: proposed, approved, run.
 	ActivityResponse = "response"
+	// ActivitySuppression records a snooze created from the incident.
+	ActivitySuppression = "suppression"
 )
 
 // Activity is one entry in an incident's audit history.

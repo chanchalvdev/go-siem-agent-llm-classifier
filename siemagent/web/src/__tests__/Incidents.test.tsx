@@ -43,6 +43,7 @@ const api = vi.hoisted(() => ({
   runPlaybook: vi.fn(),
   approveAction: vi.fn(),
   rejectAction: vi.fn(),
+  createSuppression: vi.fn(),
   apiError: (e: unknown) => (e instanceof Error ? e.message : String(e)),
 }))
 vi.mock('../lib/api', () => api)
@@ -127,6 +128,24 @@ describe('Incidents page', () => {
     await waitFor(() => expect(api.listIncidents).toHaveBeenCalledWith(expect.objectContaining({ entity: 'ip:203.0.113.7' })))
     expect(screen.getByRole('button', { name: 'Clear filter ip:203.0.113.7' })).toBeInTheDocument()
   })
+
+  it('snoozes an entity from the incident', async () => {
+    api.createSuppression.mockResolvedValue({
+      id: 'SUP-1', entity: { kind: 'host', value: 'web01' }, reason: 'pentest', created_by: 'analyst', created_at: now, hits: 0,
+    })
+    renderWithQuery(<Incidents />)
+    fireEvent.click(await screen.findByText(open.title))
+    fireEvent.click(await screen.findByRole('button', { name: 'Snooze' }))
+    const form = screen.getByRole('form', { name: 'Snooze alerts' })
+    fireEvent.change(within(form).getByLabelText('Entity'), { target: { value: 'host:web01' } })
+    fireEvent.change(within(form).getByLabelText('For'), { target: { value: '168h' } })
+    fireEvent.change(within(form).getByLabelText('Reason'), { target: { value: 'pentest' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Snooze' }))
+    await waitFor(() => expect(api.createSuppression).toHaveBeenCalledWith({
+      entity: 'host:web01', rule_id: undefined, attack_type: undefined, reason: 'pentest', duration: '168h', incident_id: open.id,
+    }))
+    await waitFor(() => expect(screen.queryByRole('form', { name: 'Snooze alerts' })).not.toBeInTheDocument())
+  })
 })
 
 describe('Incident AI actions', () => {
@@ -173,6 +192,7 @@ describe('Incident detail for viewers', () => {
     expect(screen.queryByLabelText('Add a comment')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Not helpful' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Run playbook' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Snooze' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Status')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Report' })).toBeInTheDocument()
   })

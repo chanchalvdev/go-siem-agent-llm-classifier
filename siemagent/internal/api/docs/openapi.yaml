@@ -696,6 +696,61 @@ paths:
                 type: array
                 items: {$ref: "#/components/schemas/Playbook"}
 
+  /api/suppressions:
+    get:
+      tags: [Incidents]
+      summary: List suppressions
+      description: Active and expired suppressions, newest first. Hit counts are since the server started.
+      operationId: listSuppressions
+      responses:
+        "200":
+          description: Suppressions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/Suppression"}
+    post:
+      tags: [Incidents]
+      summary: Snooze alerts (analyst)
+      description: |
+        Matching events are stored, marked `suppressed_by`, but open or join no
+        incident, run no playbook and start no AI investigation. Set at least
+        one of entity, rule_id and attack_type; all that are set must match.
+      operationId: createSuppression
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                entity: {type: string, example: "ip:203.0.113.9"}
+                rule_id: {type: string}
+                attack_type: {type: string}
+                reason: {type: string, maxLength: 500}
+                duration: {type: string, description: "1m to 2160h; empty lasts until lifted", example: "24h"}
+                incident_id: {type: string, description: Note the snooze on this incident's timeline}
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Suppression"}
+        "400": {description: Invalid suppression}
+
+  /api/suppressions/{id}:
+    delete:
+      tags: [Incidents]
+      summary: Lift a suppression (analyst)
+      operationId: liftSuppression
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "204": {description: Lifted}
+        "404": {description: Not found}
+
   /api/response/actions:
     get:
       tags: [Response]
@@ -1033,6 +1088,24 @@ components:
         created_at: {type: string, format: date-time}
         last_login_at: {type: string, format: date-time}
 
+    Suppression:
+      type: object
+      properties:
+        id: {type: string, example: SUP-1A2B3C4D}
+        entity:
+          type: object
+          properties:
+            kind: {type: string, enum: [ip, user, host]}
+            value: {type: string}
+        rule_id: {type: string}
+        attack_type: {type: string}
+        reason: {type: string}
+        created_by: {type: string}
+        created_at: {type: string, format: date-time}
+        expires_at: {type: string, format: date-time, description: Absent when it lasts until lifted}
+        hits: {type: integer, description: Matches since the server started}
+        last_hit: {type: string, format: date-time}
+
     RetentionStatus:
       type: object
       required: [active, events_days, incidents_days, audit_days, last_run]
@@ -1288,6 +1361,10 @@ components:
           type: string
           enum: [rules, llm, llm+rules]
           description: What produced the verdict.
+        suppressed_by:
+          type: string
+          description: ID of the suppression that matched; the event opened no incident.
+          example: SUP-1A2B3C4D
 
     Detection:
       type: object

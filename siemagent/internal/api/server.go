@@ -30,6 +30,7 @@ import (
 	"github.com/chverma/siemagent/internal/response"
 	"github.com/chverma/siemagent/internal/retention"
 	"github.com/chverma/siemagent/internal/store"
+	"github.com/chverma/siemagent/internal/suppression"
 )
 
 // SearchResult is a plain-Go hit returned by the vector store.
@@ -66,6 +67,8 @@ type Server struct {
 	response   *response.Engine  // nil when playbooks are off
 	users      *auth.Service     // nil when user accounts are off
 	retention  *retention.Runner // nil without Postgres
+	// suppressions snooze noisy alerts; nil disables suppression.
+	suppressions *suppression.Service
 }
 
 // maxConcurrentInvestigations caps agent runs in flight. Bulk ingest and
@@ -197,6 +200,10 @@ func (s *Server) buildRouter() *chi.Mux {
 				r.Get("/response/actions", s.handleListActions)
 				r.Post("/response/actions/{id}/approve", s.handleApproveAction)
 				r.Post("/response/actions/{id}/reject", s.handleRejectAction)
+
+				r.Get("/suppressions", s.handleListSuppressions)
+				r.Post("/suppressions", s.handleCreateSuppression)
+				r.Delete("/suppressions/{id}", s.handleLiftSuppression)
 
 				// Admin: detection tuning, accounts and the audit log.
 				r.Group(func(r chi.Router) {
@@ -395,29 +402,39 @@ func (s *Server) handleClassify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.record(classified)
+	classified = s.record(classified)
 	writeJSON(w, http.StatusOK, sanitizeEvent(classified))
 }
 
 // record persists a classified event, correlates it into an incident and,
-// for P1/P2, launches the incident agent. Every ingestion path (HTTP, stream,
+// for P1/P2, launches the incident agent. An event a suppression matches is
+// stored marked with the suppression and goes no further. It returns the
+// event as stored. Every ingestion path (HTTP, stream,
 // bulk, syslog) goes through here. It deliberately ignores the request
 // context: a client disconnecting must not lose an event that was already
 // classified.
-func (s *Server) record(ev models.ClassifiedEvent) {
+func (s *Server) record(ev models.ClassifiedEvent) models.ClassifiedEvent {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	if s.suppressions != nil {
+		if sup, ok := s.suppressions.Match(ev); ok {
+			ev.SuppressedBy = sup.ID
+		}
+	}
 	if err := s.events.Add(ctx, ev); err != nil {
 		metrics.StoreErrorsTotal.Inc()
 		slog.Error("persist event failed", "component", "api", "error", err)
 	}
+	if ev.SuppressedBy != "" {
+		return ev // kept for the record; no incident, playbook or investigation
+	}
 	if s.incidents == nil {
 		s.maybeInvestigate(ev, uuid())
-		return
+		return ev
 	}
 	res, ok := s.correlate(ev)
 	if !ok {
-		return
+		return ev
 	}
 	s.respond(res.Incident, ev)
 	// Investigate once per incident, when it opens as P1/P2 or escalates
@@ -426,6 +443,7 @@ func (s *Server) record(ev models.ClassifiedEvent) {
 	if res.Created || res.Escalated {
 		s.maybeInvestigate(ev, res.Incident.ID)
 	}
+	return ev
 }
 
 // uuid returns a short random incident identifier (crypto/rand hex).
@@ -481,7 +499,7 @@ func (s *Server) handleClassifyStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.record(classified)
+	classified = s.record(classified)
 	sendSSE(map[string]interface{}{"result": sanitizeEvent(classified), "done": true})
 }
 

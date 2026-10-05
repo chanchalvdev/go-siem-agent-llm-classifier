@@ -1,3 +1,4 @@
+import { BellOff } from 'lucide-react'
 import type { ClassifiedEvent } from '../lib/api'
 import { RuleBadge } from './DetectionList'
 import { SEVERITY_COLORS } from '../styles/tokens'
@@ -48,6 +49,14 @@ export function EventCard({ event, onClick, selected, score }: Props) {
             <SeverityBadge severity={sev} size="sm" />
             <span className="text-sm font-semibold text-fg truncate">{event.attack_type}</span>
             <RuleBadge classifiedBy={event.classified_by} />
+            {event.suppressed_by && (
+              <span
+                title={`Suppressed by ${event.suppressed_by}: stored, but kept out of incidents`}
+                className="inline-flex items-center gap-1 rounded-full border border-line-strong bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-fg-muted"
+              >
+                <BellOff size={10} aria-hidden="true" /> Suppressed
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {score !== undefined && (
