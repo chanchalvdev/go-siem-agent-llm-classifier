@@ -82,7 +82,7 @@ func (s *Server) suppressionError(w http.ResponseWriter, err error) bool {
 	case errors.Is(err, suppression.ErrInvalid):
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": strings.TrimPrefix(err.Error(), suppression.ErrInvalid.Error()+": ")})
 	default:
-		slog.Error("suppression operation failed", "component", "api", "error", err)
+		slog.Error("suppression operation failed", "component", "api", "error", logsafe.Err(err))
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "the suppression store is unavailable"})
 	}
 	return true

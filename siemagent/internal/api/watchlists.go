@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/chverma/siemagent/internal/ioc"
+	"github.com/chverma/siemagent/internal/logsafe"
 )
 
 // WithWatchlists matches every event against IOC watchlists.
@@ -197,7 +198,7 @@ func (s *Server) watchlistError(w http.ResponseWriter, err error) bool {
 	case errors.Is(err, ioc.ErrReadOnly):
 		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 	default:
-		slog.Error("watchlist operation failed", "component", "api", "error", err)
+		slog.Error("watchlist operation failed", "component", "api", "error", logsafe.Err(err))
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "the watchlist store is unavailable"})
 	}
 	return true

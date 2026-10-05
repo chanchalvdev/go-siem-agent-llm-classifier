@@ -17,6 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/chverma/siemagent/internal/logsafe"
 	"github.com/chverma/siemagent/internal/metrics"
 	"github.com/chverma/siemagent/internal/models"
 )
@@ -262,14 +263,14 @@ func (s *Service) Refresh(ctx context.Context, id string) error {
 		w.Error = err.Error()
 		s.mu.Unlock()
 		metrics.IOCFeedErrorsTotal.Inc()
-		slog.Warn("watchlist feed refresh failed", "component", "ioc", "watchlist", w.Name, "error", err)
+		slog.Warn("watchlist feed refresh failed", "component", "ioc", "watchlist", logsafe.String(w.Name), "error", logsafe.Err(err))
 		return err
 	}
 	w.Error, w.Count, w.Skipped = "", len(inds), skipped
 	s.inds[id] = inds
 	s.mu.Unlock()
 	s.rebuild()
-	slog.Info("watchlist feed refreshed", "component", "ioc", "watchlist", w.Name, "indicators", len(inds), "skipped", skipped)
+	slog.Info("watchlist feed refreshed", "component", "ioc", "watchlist", logsafe.String(w.Name), "indicators", len(inds), "skipped", skipped)
 	return nil
 }
 
