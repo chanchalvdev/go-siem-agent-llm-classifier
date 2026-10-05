@@ -904,6 +904,22 @@ paths:
                 type: array
                 items: {$ref: "#/components/schemas/AuditEntry"}
 
+  /api/retention:
+    get:
+      tags: [Accounts]
+      summary: Data retention policy and last purge (admin)
+      description: |
+        Set with RETENTION_EVENTS_DAYS, RETENTION_INCIDENTS_DAYS and
+        RETENTION_AUDIT_DAYS (0 keeps data forever). Purges run hourly and only
+        with Postgres; `active` is false without it.
+      operationId: getRetention
+      responses:
+        "200":
+          description: Policy and the most recent run
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/RetentionStatus"}
+
   # ── Analytics ─────────────────────────────────────────────────────────────────
 
   /api/analytics/summary:
@@ -1016,6 +1032,28 @@ components:
         disabled: {type: boolean}
         created_at: {type: string, format: date-time}
         last_login_at: {type: string, format: date-time}
+
+    RetentionStatus:
+      type: object
+      required: [active, events_days, incidents_days, audit_days, last_run]
+      properties:
+        active: {type: boolean, description: false without Postgres}
+        events_days: {type: integer, description: 0 keeps forever}
+        incidents_days: {type: integer, description: Resolved incidents; 0 keeps forever}
+        audit_days: {type: integer, description: 0 keeps forever}
+        interval_seconds: {type: integer}
+        last_run:
+          nullable: true
+          type: object
+          properties:
+            at: {type: string, format: date-time}
+            deleted:
+              type: object
+              description: Rows removed per kind (events, incidents, audit, sessions)
+              additionalProperties: {type: integer}
+            errors:
+              type: object
+              additionalProperties: {type: string}
 
     AuditEntry:
       type: object

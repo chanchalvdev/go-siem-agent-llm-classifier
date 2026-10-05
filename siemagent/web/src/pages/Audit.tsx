@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ScrollText } from 'lucide-react'
 import { listAudit } from '../lib/api'
+import { RetentionPanel } from '../components/RetentionPanel'
 
 function statusTone(status?: number): string {
   if (!status) return 'text-fg-subtle'
@@ -37,6 +38,7 @@ export function Audit() {
             />
           </label>
         </header>
+        <RetentionPanel />
         <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-card">
           <table className="w-full text-left text-xs">
             <caption className="sr-only">Audit log entries</caption>

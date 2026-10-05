@@ -262,6 +262,7 @@ Dashboard available at **http://localhost:5173**
 | `INCIDENT_WINDOW` / `INCIDENT_MIN_SEVERITY` | Alert correlation window and threshold ([docs/INCIDENTS.md](docs/INCIDENTS.md)) | `1h` / `P3` |
 | `PLAYBOOKS_DIR` | Extra response playbooks ([docs/RESPONSE.md](docs/RESPONSE.md)) | — |
 | `RESPONSE_WEBHOOK_URL` / `SLACK_WEBHOOK_URL` | Where approved containment actions and notifications go | — |
+| `RETENTION_EVENTS_DAYS` / `RETENTION_INCIDENTS_DAYS` / `RETENTION_AUDIT_DAYS` | Days to keep events, resolved incidents and audit entries (Postgres only); `0` keeps forever | `0` |
 | `POSTGRES_DSN` | Postgres connection string; empty keeps events in memory | see `.env.example` |
 | `DETECTION_MODE` | `rules-first`, `enrich` or `off` ([docs/DETECTION.md](docs/DETECTION.md)) | `rules-first` |
 | `SIGMA_RULES_DIR` | Extra Sigma rules folder, searched recursively | — |

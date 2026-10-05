@@ -534,3 +534,27 @@ export async function listAudit(filter: { actor?: string; limit?: number } = {})
   const { data } = await client.get<AuditEntry[]>('/audit', { params })
   return data
 }
+
+export type RetentionKind = 'events' | 'incidents' | 'audit' | 'sessions'
+
+export interface RetentionRun {
+  at: string
+  deleted: Partial<Record<RetentionKind, number>>
+  errors?: Partial<Record<RetentionKind, string>>
+}
+
+export interface RetentionStatus {
+  /** false without Postgres: nothing durable to purge. */
+  active: boolean
+  /** 0 keeps the data forever. */
+  events_days: number
+  incidents_days: number
+  audit_days: number
+  interval_seconds?: number
+  last_run: RetentionRun | null
+}
+
+export async function getRetention(): Promise<RetentionStatus> {
+  const { data } = await client.get<RetentionStatus>('/retention')
+  return data
+}
